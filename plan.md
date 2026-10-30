@@ -323,7 +323,7 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 | Fase | Estado | Notas |
 |---|---|---|
 | 0 Preparación | ✅ Completada | Node 24.20.0; npm 11.19.0; Git 2.53.0; Docker 29.7.2 / Compose 5.5.1; Windows; teléfono físico; Prisma; `main`. Expo Go pendiente. |
-| 1 Proyecto móvil | ✅ Completada | Expo SDK 57 + Router; TypeScript strict; Paper, React Hook Form, Zod; ESLint/Prettier; web verificada. Prueba con Expo Go pendiente. |
+| 1 Proyecto móvil | ✅ Completada | Expo SDK 57 + Router; TypeScript strict; Paper, React Hook Form, Zod; ESLint/Prettier; web verificada y Expo Go confirmada por la usuaria. |
 | 2 Interfaz | ⬜ Pendiente | |
 | 3 CRUD local | ⬜ Pendiente | |
 | 4 PostgreSQL Docker | ⬜ Pendiente | |
