@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet } from "react-native";
-import { Appbar, Text } from "react-native-paper";
+import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenHeader } from "../../src/components/ScreenHeader";
 import { TaskForm } from "../../src/components/TaskForm";
 import { useTasks } from "../../src/hooks/useTasks";
+import { colors } from "../../src/theme";
 
 export default function NewTaskScreen() {
   const { addTask } = useTasks();
@@ -11,20 +12,7 @@ export default function NewTaskScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Appbar.Header>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Volver a tareas"
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.backPressed,
-          ]}
-        >
-          <Text variant="labelLarge">Volver</Text>
-        </Pressable>
-        <Appbar.Content title="Nueva tarea" />
-      </Appbar.Header>
+      <ScreenHeader title="Nueva tarea" />
       <TaskForm
         onSave={(values) => {
           addTask(values);
@@ -38,13 +26,6 @@ export default function NewTaskScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  backButton: {
-    height: 48,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  backPressed: {
-    opacity: 0.7,
+    backgroundColor: colors.paper,
   },
 });

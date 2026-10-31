@@ -1,22 +1,16 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import { FlatList, Pressable, StyleSheet } from "react-native";
-import {
-  Appbar,
-  Button,
-  Dialog,
-  Portal,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { Button, Dialog, Portal, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskItem } from "../src/components/TaskItem";
 import { useTasks } from "../src/hooks/useTasks";
+import { colors, displayFont } from "../src/theme";
 import type { Task } from "../src/types/Task";
 
 export default function Index() {
   const router = useRouter();
-  const theme = useTheme();
+
   const { tasks, deleteTask } = useTasks();
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
@@ -28,9 +22,14 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Appbar.Header>
-        <Appbar.Content title="Tareas pendientes" />
-      </Appbar.Header>
+      <View style={styles.header}>
+        <Text style={styles.title}>Tareas</Text>
+        <Text variant="bodyMedium" style={styles.count}>
+          {tasks.length === 0
+            ? "Nada pendiente"
+            : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
+        </Text>
+      </View>
       <FlatList
         data={tasks}
         keyExtractor={(task) => task.id}
@@ -43,12 +42,20 @@ export default function Index() {
             onDelete={() => setTaskToDelete(item)}
           />
         )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={[
           styles.list,
           tasks.length === 0 && styles.emptyList,
         ]}
         ListEmptyComponent={
-          <Text variant="bodyLarge">No hay tareas pendientes</Text>
+          <View style={styles.empty}>
+            <Text variant="bodyLarge" style={styles.emptyText}>
+              Aún no hay tareas.
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptyHint}>
+              Crea la primera con el botón Nueva tarea.
+            </Text>
+          </View>
         }
       />
       <Pressable
@@ -56,13 +63,12 @@ export default function Index() {
         accessibilityLabel="Crear nueva tarea"
         style={({ pressed }) => [
           styles.fab,
-          { backgroundColor: theme.colors.primary },
           pressed && styles.fabPressed,
         ]}
         onPress={() => router.push("/task/new")}
       >
-        <Text variant="labelLarge" style={{ color: theme.colors.onPrimary }}>
-          Nueva tarea
+        <Text variant="titleMedium" style={styles.fabText}>
+          + Nueva tarea
         </Text>
       </Pressable>
       <Portal>
@@ -79,7 +85,7 @@ export default function Index() {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setTaskToDelete(null)}>Cancelar</Button>
-            <Button onPress={confirmDelete} textColor={theme.colors.error}>
+            <Button onPress={confirmDelete} textColor={colors.error}>
               Eliminar
             </Button>
           </Dialog.Actions>
@@ -92,30 +98,58 @@ export default function Index() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: colors.paper,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    gap: 2,
+  },
+  title: {
+    fontFamily: displayFont,
+    fontSize: 40,
+    lineHeight: 48,
+    color: colors.ink,
+  },
+  count: {
+    color: colors.muted,
   },
   list: {
     flexGrow: 1,
-    gap: 12,
-    padding: 16,
-    paddingBottom: 96,
+    paddingHorizontal: 20,
+    paddingBottom: 104,
   },
   emptyList: {
-    alignItems: "center",
     justifyContent: "center",
+  },
+  empty: {
+    alignItems: "center",
+    gap: 4,
+  },
+  emptyText: {
+    color: colors.ink,
+  },
+  emptyHint: {
+    color: colors.muted,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.line,
   },
   fab: {
     position: "absolute",
-    bottom: 16,
-    right: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 56,
-    height: 56,
-    paddingHorizontal: 20,
+    right: 20,
+    bottom: 24,
+    backgroundColor: colors.teal,
     borderRadius: 28,
-    elevation: 4,
+    paddingHorizontal: 22,
+    paddingVertical: 16,
   },
   fabPressed: {
     opacity: 0.85,
+  },
+  fabText: {
+    color: "#FFFFFF",
   },
 });

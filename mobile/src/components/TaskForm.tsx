@@ -10,9 +10,9 @@ import {
   Button,
   Text,
   TextInput as PaperTextInput,
-  useTheme,
 } from "react-native-paper";
 import { taskSchema, type TaskFormValues } from "../schemas/taskSchema";
+import { colors } from "../theme";
 
 type TaskFieldProps = {
   label: string;
@@ -33,7 +33,11 @@ function TaskField({
   error,
   multiline = false,
 }: TaskFieldProps) {
-  const theme = useTheme();
+  const errorText = error ? (
+    <Text variant="bodySmall" style={styles.errorText}>
+      {error}
+    </Text>
+  ) : null;
 
   if (Platform.OS !== "web") {
     return (
@@ -41,50 +45,40 @@ function TaskField({
         <PaperTextInput
           accessibilityLabel={label}
           label={label}
-          mode="outlined"
+          mode="flat"
           value={value}
           onChangeText={onChangeText}
           onBlur={onBlur}
           error={Boolean(error)}
           multiline={multiline}
           numberOfLines={multiline ? 4 : undefined}
+          style={styles.flatInput}
         />
-        {error ? (
-          <Text variant="bodySmall" style={{ color: theme.colors.error }}>
-            {error}
-          </Text>
-        ) : null}
+        {errorText}
       </View>
     );
   }
 
   return (
     <View style={styles.field}>
-      <Text variant="labelLarge">{label}</Text>
+      <Text variant="labelLarge" style={styles.webLabel}>
+        {label}
+      </Text>
       <NativeTextInput
         accessibilityLabel={label}
-        placeholder={label}
         value={value}
         onChangeText={onChangeText}
         onBlur={onBlur}
         multiline={multiline}
         numberOfLines={multiline ? 4 : undefined}
-        placeholderTextColor={theme.colors.onSurfaceVariant}
+        placeholderTextColor={colors.muted}
         style={[
           styles.webInput,
-          {
-            borderColor: error ? theme.colors.error : theme.colors.outline,
-            backgroundColor: theme.colors.surface,
-            color: theme.colors.onSurface,
-          },
+          { borderBottomColor: error ? colors.error : colors.line },
           multiline && styles.multiline,
         ]}
       />
-      {error ? (
-        <Text variant="bodySmall" style={{ color: theme.colors.error }}>
-          {error}
-        </Text>
-      ) : null}
+      {errorText}
     </View>
   );
 }
@@ -135,7 +129,12 @@ export function TaskForm({
           />
         )}
       />
-      <Button mode="contained" onPress={saveTask}>
+      <Button
+        mode="contained"
+        onPress={saveTask}
+        style={styles.save}
+        contentStyle={styles.saveContent}
+      >
         Guardar
       </Button>
     </View>
@@ -144,22 +143,39 @@ export function TaskForm({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 16,
-    padding: 16,
+    gap: 20,
+    paddingHorizontal: 20,
   },
   field: {
-    gap: 8,
+    gap: 6,
+  },
+  flatInput: {
+    backgroundColor: "transparent",
+  },
+  errorText: {
+    color: colors.error,
+  },
+  webLabel: {
+    color: colors.muted,
   },
   webInput: {
-    minHeight: 54,
-    borderWidth: 1,
-    borderRadius: 4,
+    minHeight: 48,
+    borderBottomWidth: 1,
     fontSize: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    color: colors.ink,
+    paddingVertical: 10,
+    // RN no tipa outlineStyle, pero react-native-web sí lo aplica
+    ...({ outlineStyle: "none" } as object),
   },
   multiline: {
     height: 120,
     textAlignVertical: "top",
+  },
+  save: {
+    marginTop: 12,
+    borderRadius: 28,
+  },
+  saveContent: {
+    paddingVertical: 8,
   },
 });

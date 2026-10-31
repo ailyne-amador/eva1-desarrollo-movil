@@ -1,9 +1,11 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Appbar, Button, Text } from "react-native-paper";
+import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenHeader } from "../../src/components/ScreenHeader";
 import { TaskForm } from "../../src/components/TaskForm";
 import { useTasks } from "../../src/hooks/useTasks";
+import { colors } from "../../src/theme";
 
 export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -13,20 +15,7 @@ export default function EditTaskScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Appbar.Header>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Volver a tareas"
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.backPressed,
-          ]}
-        >
-          <Text variant="labelLarge">Volver</Text>
-        </Pressable>
-        <Appbar.Content title="Editar tarea" />
-      </Appbar.Header>
+      <ScreenHeader title="Editar tarea" />
       {task ? (
         <TaskForm
           key={task.id}
@@ -38,10 +27,18 @@ export default function EditTaskScreen() {
         />
       ) : (
         <View style={styles.notFound}>
-          <Text variant="bodyLarge">No se encontró la tarea.</Text>
-          <Button mode="outlined" onPress={() => router.replace("/")}>
-            Volver a tareas
-          </Button>
+          <Text variant="bodyLarge" style={styles.notFoundText}>
+            No se encontró la tarea.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.replace("/")}
+            hitSlop={8}
+          >
+            <Text variant="bodyLarge" style={styles.link}>
+              Volver a tareas
+            </Text>
+          </Pressable>
         </View>
       )}
     </SafeAreaView>
@@ -51,20 +48,19 @@ export default function EditTaskScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  backButton: {
-    height: 48,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  backPressed: {
-    opacity: 0.7,
+    backgroundColor: colors.paper,
   },
   notFound: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
-    padding: 16,
+    gap: 12,
+    padding: 20,
+  },
+  notFoundText: {
+    color: colors.ink,
+  },
+  link: {
+    color: colors.teal,
   },
 });
