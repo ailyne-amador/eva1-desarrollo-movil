@@ -131,10 +131,10 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 **Objetivo:** confirmar que el entorno permite trabajar y resolver las preguntas abiertas (sección 1.3).
 
 **Tareas**
-- [ ] Preguntar lo pendiente de la sección 1.3 (de a una).
-- [ ] Verificar versiones: `node -v`, `npm -v`, `git --version`, `docker --version`, `docker compose version`.
-- [ ] Crear el repositorio Git con `.gitignore` (`node_modules`, `.expo`, `.env`, builds) y rama `main`.
-- [ ] Pedirle que instale Expo Go en el teléfono o configure el emulador, según lo que elija.
+- [x] Preguntar lo pendiente de la sección 1.3 (de a una).
+- [x] Verificar versiones: `node -v`, `npm -v`, `git --version`, `docker --version`, `docker compose version`.
+- [x] Crear el repositorio Git con `.gitignore` (`node_modules`, `.expo`, `.env`, builds) y rama `main`.
+- [x] Pedirle que instale Expo Go en el teléfono o configure el emulador, según lo que elija.
 
 **Por qué:** si Docker o Node no están bien instalados, los errores aparecen mezclados con los del proyecto y cuesta entender qué falla.
 
@@ -148,12 +148,12 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 **Objetivo:** app Expo + TypeScript corriendo.
 
 **Tareas**
-- [ ] Crear el proyecto en `mobile/` con `npx create-expo-app@latest` (plantilla en blanco con TypeScript; si la plantilla no incluye Expo Router, instalarlo siguiendo la documentación vigente).
-- [ ] Levantar con `npx expo start`; abrir en teléfono/emulador y en navegador con `--web`.
-- [ ] Instalar: `react-native-paper`, `react-native-safe-area-context` (si falta), `react-hook-form`, `zod`, `@hookform/resolvers`.
-- [ ] Activar `"strict": true` en `tsconfig`; configurar ESLint + Prettier con scripts `lint` y `format`.
-- [ ] Crear la estructura `src/` y el tipo `Task`.
-- [ ] Commit: `chore: crear proyecto Expo con TypeScript`.
+- [x] Crear el proyecto en `mobile/` con `npx create-expo-app@latest` (plantilla en blanco con TypeScript; si la plantilla no incluye Expo Router, instalarlo siguiendo la documentación vigente).
+- [x] Levantar con `npx expo start`; abrir en teléfono/emulador y en navegador con `--web`.
+- [x] Instalar: `react-native-paper`, `react-native-safe-area-context` (si falta), `react-hook-form`, `zod`, `@hookform/resolvers`.
+- [x] Activar `"strict": true` en `tsconfig`; configurar ESLint + Prettier con scripts `lint` y `format`.
+- [x] Crear la estructura `src/` y el tipo `Task`.
+- [x] Commit: `chore: crear proyecto Expo con TypeScript`.
 
 **Por qué:** explicar qué es Metro (el servidor que empaqueta el código), qué hace Expo Go y por qué `strict` evita errores silenciosos.
 
@@ -167,12 +167,12 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 **Objetivo:** pantallas completas, sin lógica real todavía.
 
 **Tareas**
-- [ ] Envolver la app en `PaperProvider` (en `_layout.tsx`).
-- [ ] Pantalla de lista (`app/index.tsx`): header, `FlatList`, estado vacío ("No hay tareas pendientes").
-- [ ] Componente `TaskItem`: título, descripción, botón editar y botón eliminar (aún sin acción).
-- [ ] Componente `TaskForm`: `TextInput` de título, `TextInput` multilínea de descripción, `Button` "Guardar".
-- [ ] Botón flotante (FAB) para ir a "Nueva tarea"; ruta `task/new`.
-- [ ] Usar un arreglo `mockTasks` para ver la lista.
+- [x] Envolver la app en `PaperProvider` (en `_layout.tsx`).
+- [x] Pantalla de lista (`app/index.tsx`): header, `FlatList`, estado vacío ("No hay tareas pendientes").
+- [x] Componente `TaskItem`: título, descripción, botón editar y botón eliminar (aún sin acción).
+- [x] Componente `TaskForm`: `TextInput` de título, `TextInput` multilínea de descripción, `Button` "Guardar".
+- [x] Botón flotante (FAB) para ir a "Nueva tarea"; ruta `task/new`.
+- [x] Usar un arreglo `mockTasks` para ver la lista.
 
 **Por qué:** separar componentes (`TaskItem`, `TaskForm`) permite reutilizar el formulario para agregar y editar; `FlatList` renderiza solo lo visible, a diferencia de `ScrollView`.
 
@@ -323,8 +323,8 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 | Fase | Estado | Notas |
 |---|---|---|
 | 0 Preparación | ✅ Completada | Node 24.20.0; npm 11.19.0; Git 2.53.0; Docker 29.7.2 / Compose 5.5.1; Windows; teléfono físico; Prisma; `main`; Expo Go verificada en Fase 1. |
-| 1 Proyecto móvil | ✅ Completada | Expo SDK 57 + Router; TypeScript strict; Paper, React Hook Form, Zod; ESLint/Prettier; web verificada y Expo Go confirmada por la usuaria. |
-| 2 Interfaz | ✅ Completada | PaperProvider; FlatList con mockTasks; componentes TaskItem y TaskForm; navegación verificada lista↔formulario en web sin errores ni advertencias. |
+| 1 Proyecto móvil | ✅ Completada | Expo SDK 57 + Router; TypeScript strict; Paper, React Hook Form, Zod; ESLint/Prettier; web verificada y Expo Go confirmada por la usuaria; commit `644c471`. |
+| 2 Interfaz | ✅ Completada | PaperProvider; FlatList/mockTasks; TaskItem y TaskForm; navegación web lista↔formulario sin errores ni advertencias. FAB visual con Pressable; Paper TextInput en móvil y nativo en web; Metro resuelto al sincronizar `main`; commit `1a62a59` publicado en `main` y `fase-2-ui`. |
 | 3 CRUD local | ⬜ Pendiente | |
 | 4 PostgreSQL Docker | ⬜ Pendiente | |
 | 5 API Express | ⬜ Pendiente | |
