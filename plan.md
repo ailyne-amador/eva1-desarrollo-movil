@@ -204,10 +204,10 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 **Objetivo:** base de datos reproducible con un comando.
 
 **Tareas**
-- [ ] Crear `docker-compose.yml` en la raíz con servicio `db` (imagen `postgres:16`, volumen `pgdata`, puerto 5432, credenciales desde variables de entorno con valores por defecto de desarrollo).
-- [ ] `docker compose up -d`; verificar con `docker compose ps` y conectarse con DBeaver/pgAdmin.
-- [ ] Definir la tabla `tasks` (`id` autoincremental, `title VARCHAR(100) NOT NULL`, `description TEXT NOT NULL`, `created_at`, `updated_at`) mediante migración de Prisma o script SQL.
-- [ ] Crear `server/.env.example` con `DATABASE_URL` de ejemplo.
+- [x] Crear `docker-compose.yml` en la raíz con servicio `db` (imagen `postgres:16`, volumen `pgdata`, puerto 5432 en el contenedor; host 5433 porque 5432 ya estaba ocupado, credenciales desde variables de entorno con valores por defecto de desarrollo).
+- [x] `docker compose up -d`; verificar con `docker compose ps` y conexión a la base (verificada con `psql`).
+- [x] Definir la tabla `tasks` (`id` autoincremental, `title VARCHAR(100) NOT NULL`, `description TEXT NOT NULL`, `created_at`, `updated_at`) mediante migración de Prisma.
+- [x] Crear `server/.env.example` con `DATABASE_URL` de ejemplo.
 
 **Por qué:** el volumen conserva los datos aunque se destruya el contenedor; las variables de entorno evitan credenciales fijas en el código.
 
@@ -326,7 +326,7 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 | 1 Proyecto móvil | ✅ Completada | Expo SDK 57 + Router; TypeScript strict; Paper, React Hook Form, Zod; ESLint/Prettier; web verificada y Expo Go confirmada por la usuaria; commit `644c471`. |
 | 2 Interfaz | ✅ Completada | PaperProvider; FlatList/mockTasks; TaskItem y TaskForm; navegación web lista↔formulario sin errores ni advertencias. FAB visual con Pressable; Paper TextInput en móvil y nativo en web; Metro resuelto al sincronizar `main`; commit `1a62a59` publicado en `main` y `fase-2-ui`. |
 | 3 CRUD local | ✅ Completada | Estado en memoria con Context; Zod/RHF; alta limpia, edición precargada y borrado con confirmación. TypeScript, lint y flujos web verificados. |
-| 4 PostgreSQL Docker | ⬜ Pendiente | |
+| 4 PostgreSQL Docker | ✅ Completada | `docker-compose.yml` con PostgreSQL 16 y volumen `pgdata`; host 5433 porque `ventasfix_db` ocupa 5432. Prisma 7.10.1; `server/.env.example`, `server/prisma.config.ts`, `server/prisma/schema.prisma` y migración `server/prisma/migrations/20261031025701_init/`; contenedor saludable y consulta `SELECT * FROM tasks;` verificada. |
 | 5 API Express | ⬜ Pendiente | |
 | 6 Integración | ⬜ Pendiente | |
 | 7 Pruebas y pulido | ⬜ Pendiente | |
