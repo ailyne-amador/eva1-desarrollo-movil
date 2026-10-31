@@ -1,3 +1,5 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Controller, useForm } from "react-hook-form";
 import {
   Platform,
   StyleSheet,
@@ -10,23 +12,49 @@ import {
   TextInput as PaperTextInput,
   useTheme,
 } from "react-native-paper";
+import { taskSchema, type TaskFormValues } from "../schemas/taskSchema";
 
 type TaskFieldProps = {
   label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  onBlur: () => void;
+  error?: string;
   multiline?: boolean;
 };
 
-function TaskField({ label, multiline = false }: TaskFieldProps) {
+const emptyValues: TaskFormValues = { title: "", description: "" };
+
+function TaskField({
+  label,
+  value,
+  onChangeText,
+  onBlur,
+  error,
+  multiline = false,
+}: TaskFieldProps) {
   const theme = useTheme();
 
   if (Platform.OS !== "web") {
     return (
-      <PaperTextInput
-        label={label}
-        mode="outlined"
-        multiline={multiline}
-        numberOfLines={multiline ? 4 : undefined}
-      />
+      <View style={styles.field}>
+        <PaperTextInput
+          accessibilityLabel={label}
+          label={label}
+          mode="outlined"
+          value={value}
+          onChangeText={onChangeText}
+          onBlur={onBlur}
+          error={Boolean(error)}
+          multiline={multiline}
+          numberOfLines={multiline ? 4 : undefined}
+        />
+        {error ? (
+          <Text variant="bodySmall" style={{ color: theme.colors.error }}>
+            {error}
+          </Text>
+        ) : null}
+      </View>
     );
   }
 
@@ -36,29 +64,78 @@ function TaskField({ label, multiline = false }: TaskFieldProps) {
       <NativeTextInput
         accessibilityLabel={label}
         placeholder={label}
+        value={value}
+        onChangeText={onChangeText}
+        onBlur={onBlur}
         multiline={multiline}
         numberOfLines={multiline ? 4 : undefined}
         placeholderTextColor={theme.colors.onSurfaceVariant}
         style={[
           styles.webInput,
           {
-            borderColor: theme.colors.outline,
+            borderColor: error ? theme.colors.error : theme.colors.outline,
             backgroundColor: theme.colors.surface,
             color: theme.colors.onSurface,
           },
           multiline && styles.multiline,
         ]}
       />
+      {error ? (
+        <Text variant="bodySmall" style={{ color: theme.colors.error }}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-export function TaskForm() {
+export function TaskForm({
+  defaultValues = emptyValues,
+  onSave,
+}: {
+  defaultValues?: TaskFormValues;
+  onSave: (values: TaskFormValues) => void;
+}) {
+  const { control, handleSubmit, reset } = useForm({
+    resolver: zodResolver(taskSchema),
+    defaultValues,
+  });
+
+  const saveTask = handleSubmit((values) => {
+    reset(defaultValues);
+    onSave(values);
+  });
+
   return (
     <View style={styles.container}>
-      <TaskField label="Título" />
-      <TaskField label="Descripción" multiline />
-      <Button mode="contained" disabled>
+      <Controller
+        control={control}
+        name="title"
+        render={({ field, fieldState }) => (
+          <TaskField
+            label="Título"
+            value={field.value}
+            onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={fieldState.error?.message}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="description"
+        render={({ field, fieldState }) => (
+          <TaskField
+            label="Descripción"
+            value={field.value}
+            onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={fieldState.error?.message}
+            multiline
+          />
+        )}
+      />
+      <Button mode="contained" onPress={saveTask}>
         Guardar
       </Button>
     </View>

@@ -186,11 +186,11 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 **Objetivo:** cumplir los requisitos con estado local. **Es el plan de respaldo**: si Docker o la API fallan, la entrega mínima ya existe.
 
 **Tareas**
-- [ ] Crear `useTasks` (estado con `useState`/`useReducer` o Context) con `addTask`, `updateTask`, `deleteTask`.
-- [ ] Esquema Zod `taskSchema` (título y descripción obligatorios, título máx. 100) integrado con React Hook Form; mensajes de error bajo cada campo.
-- [ ] **Agregar:** guardar y **limpiar los campos** del formulario.
-- [ ] **Editar:** formulario con datos precargados (`task/[id]`).
-- [ ] **Eliminar:** botón por tarea con confirmación (`Dialog` de Paper).
+- [x] Crear `useTasks` (estado con `useState`/`useReducer` o Context) con `addTask`, `updateTask`, `deleteTask`.
+- [x] Esquema Zod `taskSchema` (título y descripción obligatorios, título máx. 100) integrado con React Hook Form; mensajes de error bajo cada campo.
+- [x] **Agregar:** guardar y **limpiar los campos** del formulario.
+- [x] **Editar:** formulario con datos precargados (`task/[id]`).
+- [x] **Eliminar:** botón por tarea con confirmación (`Dialog` de Paper).
 
 **Por qué:** construir primero la lógica sin red permite entender el flujo de datos y la validación sin mezclar problemas de conexión.
 
@@ -325,7 +325,7 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 | 0 Preparación | ✅ Completada | Node 24.20.0; npm 11.19.0; Git 2.53.0; Docker 29.7.2 / Compose 5.5.1; Windows; teléfono físico; Prisma; `main`; Expo Go verificada en Fase 1. |
 | 1 Proyecto móvil | ✅ Completada | Expo SDK 57 + Router; TypeScript strict; Paper, React Hook Form, Zod; ESLint/Prettier; web verificada y Expo Go confirmada por la usuaria; commit `644c471`. |
 | 2 Interfaz | ✅ Completada | PaperProvider; FlatList/mockTasks; TaskItem y TaskForm; navegación web lista↔formulario sin errores ni advertencias. FAB visual con Pressable; Paper TextInput en móvil y nativo en web; Metro resuelto al sincronizar `main`; commit `1a62a59` publicado en `main` y `fase-2-ui`. |
-| 3 CRUD local | ⬜ Pendiente | |
+| 3 CRUD local | ✅ Completada | Estado en memoria con Context; Zod/RHF; alta limpia, edición precargada y borrado con confirmación. TypeScript, lint y flujos web verificados. |
 | 4 PostgreSQL Docker | ⬜ Pendiente | |
 | 5 API Express | ⬜ Pendiente | |
 | 6 Integración | ⬜ Pendiente | |

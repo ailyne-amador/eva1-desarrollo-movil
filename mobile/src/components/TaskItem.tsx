@@ -3,9 +3,11 @@ import type { Task } from "../types/Task";
 
 type TaskItemProps = {
   task: Task;
+  onEdit: () => void;
+  onDelete: () => void;
 };
 
-export function TaskItem({ task }: TaskItemProps) {
+export function TaskItem({ task, onEdit, onDelete }: TaskItemProps) {
   return (
     <Card mode="outlined">
       <Card.Content>
@@ -13,10 +15,10 @@ export function TaskItem({ task }: TaskItemProps) {
         <Text variant="bodyMedium">{task.description}</Text>
       </Card.Content>
       <Card.Actions>
-        <Button compact disabled accessibilityLabel="Editar tarea">
+        <Button compact onPress={onEdit} accessibilityLabel="Editar tarea">
           Editar
         </Button>
-        <Button compact disabled accessibilityLabel="Eliminar tarea">
+        <Button compact onPress={onDelete} accessibilityLabel="Eliminar tarea">
           Eliminar
         </Button>
       </Card.Actions>

@@ -1,26 +1,30 @@
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import { FlatList, Pressable, StyleSheet } from "react-native";
-import { Appbar, Text, useTheme } from "react-native-paper";
+import {
+  Appbar,
+  Button,
+  Dialog,
+  Portal,
+  Text,
+  useTheme,
+} from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskItem } from "../src/components/TaskItem";
+import { useTasks } from "../src/hooks/useTasks";
 import type { Task } from "../src/types/Task";
-
-const mockTasks: Task[] = [
-  {
-    id: "1",
-    title: "Preparar materiales",
-    description: "Revisar los requisitos de la evaluación.",
-  },
-  {
-    id: "2",
-    title: "Diseñar la lista",
-    description: "Mostrar título y descripción de cada tarea.",
-  },
-];
 
 export default function Index() {
   const router = useRouter();
   const theme = useTheme();
+  const { tasks, deleteTask } = useTasks();
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+
+  function confirmDelete() {
+    if (!taskToDelete) return;
+    deleteTask(taskToDelete.id);
+    setTaskToDelete(null);
+  }
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -28,12 +32,20 @@ export default function Index() {
         <Appbar.Content title="Tareas pendientes" />
       </Appbar.Header>
       <FlatList
-        data={mockTasks}
+        data={tasks}
         keyExtractor={(task) => task.id}
-        renderItem={({ item }) => <TaskItem task={item} />}
+        renderItem={({ item }) => (
+          <TaskItem
+            task={item}
+            onEdit={() =>
+              router.push({ pathname: "/task/[id]", params: { id: item.id } })
+            }
+            onDelete={() => setTaskToDelete(item)}
+          />
+        )}
         contentContainerStyle={[
           styles.list,
-          mockTasks.length === 0 && styles.emptyList,
+          tasks.length === 0 && styles.emptyList,
         ]}
         ListEmptyComponent={
           <Text variant="bodyLarge">No hay tareas pendientes</Text>
@@ -53,6 +65,26 @@ export default function Index() {
           Nueva tarea
         </Text>
       </Pressable>
+      <Portal>
+        <Dialog
+          visible={taskToDelete !== null}
+          onDismiss={() => setTaskToDelete(null)}
+        >
+          <Dialog.Title>Eliminar tarea</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              ¿Quieres eliminar “{taskToDelete?.title}”? Esta acción no se puede
+              deshacer.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setTaskToDelete(null)}>Cancelar</Button>
+            <Button onPress={confirmDelete} textColor={theme.colors.error}>
+              Eliminar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   );
 }

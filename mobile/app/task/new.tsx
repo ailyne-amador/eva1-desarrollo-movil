@@ -3,8 +3,10 @@ import { Pressable, StyleSheet } from "react-native";
 import { Appbar, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskForm } from "../../src/components/TaskForm";
+import { useTasks } from "../../src/hooks/useTasks";
 
 export default function NewTaskScreen() {
+  const { addTask } = useTasks();
   const router = useRouter();
 
   return (
@@ -23,7 +25,12 @@ export default function NewTaskScreen() {
         </Pressable>
         <Appbar.Content title="Nueva tarea" />
       </Appbar.Header>
-      <TaskForm />
+      <TaskForm
+        onSave={(values) => {
+          addTask(values);
+          router.back();
+        }}
+      />
     </SafeAreaView>
   );
 }
