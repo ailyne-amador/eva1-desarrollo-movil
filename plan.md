@@ -327,7 +327,7 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 | 2 Interfaz | ✅ Completada | PaperProvider; FlatList/mockTasks; TaskItem y TaskForm; navegación web lista↔formulario sin errores ni advertencias. FAB visual con Pressable; Paper TextInput en móvil y nativo en web; Metro resuelto al sincronizar `main`; commit `1a62a59` publicado en `main` y `fase-2-ui`. |
 | 3 CRUD local | ✅ Completada | Estado en memoria con Context; Zod/RHF; alta limpia, edición precargada y borrado con confirmación. TypeScript, lint y flujos web verificados. |
 | 4 PostgreSQL Docker | ✅ Completada | `docker-compose.yml` con PostgreSQL 16 y volumen `pgdata`; host 5433 porque `ventasfix_db` ocupa 5432. Prisma 7.10.1; `server/.env.example`, `server/prisma.config.ts`, `server/prisma/schema.prisma` y migración `server/prisma/migrations/20261031025701_init/`; contenedor saludable y consulta `SELECT * FROM tasks;` verificada. |
-| 5 API Express | ⬜ Pendiente | |
+| 5 API Express | ✅ Completada | Express 5 + `tsx`, CORS, Zod (mensajes en español) y Prisma 7 con `@prisma/adapter-pg` (Prisma 7 exige driver adapter). Rutas → `controllers/tasksController.ts` → Prisma. Verificado con curl: health 200, GET 200, POST 201/400, PUT 200/404, DELETE 204/404. |
 | 6 Integración | ⬜ Pendiente | |
 | 7 Pruebas y pulido | ⬜ Pendiente | |
-| 8 README y entrega | ⬜ Pendiente | |
+| 8 README y entrega | ⬜ Pendiente | `README.md` no existe; la redacción y entrega quedan pendientes para esta fase. |
