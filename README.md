@@ -3,7 +3,7 @@
 **Asignatura:** Desarrollo Móvil  
 **Estudiante:** Ailyne Amador
 
-Aplicación móvil para crear, listar, editar y eliminar tareas. La app está desarrollada con Expo y React Native; una API REST en Express guarda los datos en PostgreSQL. El uso de React Native fue indicado por el profesor para esta evaluación.
+Aplicación móvil para crear, listar, editar y eliminar tareas. La app está desarrollada con Expo y React Native; una API REST en Express guarda los datos en PostgreSQL.
 
 ## Tecnologías
 
