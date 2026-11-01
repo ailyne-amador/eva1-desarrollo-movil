@@ -1,59 +1,42 @@
-import { createContext, useContext, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import type { Task } from "../types/Task";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createTask as createTaskRequest,
+  deleteTask as deleteTaskRequest,
+  getTasks,
+  updateTask as updateTaskRequest,
+} from "../services/api";
+import type { TaskFormValues } from "../schemas/taskSchema";
 
-type TaskValues = Pick<Task, "title" | "description">;
-
-type TasksContextValue = {
-  tasks: Task[];
-  addTask: (values: TaskValues) => void;
-  updateTask: (id: string, values: TaskValues) => void;
-  deleteTask: (id: string) => void;
-};
-
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Preparar materiales",
-    description: "Revisar los requisitos de la evaluación.",
-  },
-  {
-    id: "2",
-    title: "Diseñar la lista",
-    description: "Mostrar título y descripción de cada tarea.",
-  },
-];
-
-const TasksContext = createContext<TasksContextValue | null>(null);
-
-export function TasksProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState(initialTasks);
-  const nextId = useRef(3);
-
-  function addTask(values: TaskValues) {
-    const id = String(nextId.current++);
-    setTasks((current) => [...current, { id, ...values }]);
-  }
-
-  function updateTask(id: string, values: TaskValues) {
-    setTasks((current) =>
-      current.map((task) => (task.id === id ? { ...task, ...values } : task)),
-    );
-  }
-
-  function deleteTask(id: string) {
-    setTasks((current) => current.filter((task) => task.id !== id));
-  }
-
-  return (
-    <TasksContext.Provider value={{ tasks, addTask, updateTask, deleteTask }}>
-      {children}
-    </TasksContext.Provider>
-  );
-}
+const tasksQueryKey = ["tasks"] as const;
 
 export function useTasks() {
-  const context = useContext(TasksContext);
-  if (!context) throw new Error("useTasks debe usarse dentro de TasksProvider");
-  return context;
+  const queryClient = useQueryClient();
+  const tasksQuery = useQuery({ queryKey: tasksQueryKey, queryFn: getTasks });
+  const addMutation = useMutation({
+    mutationFn: createTaskRequest,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tasksQueryKey }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, values }: { id: string; values: TaskFormValues }) =>
+      updateTaskRequest(id, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tasksQueryKey }),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteTaskRequest,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: tasksQueryKey }),
+  });
+
+  return {
+    tasks: tasksQuery.data ?? [],
+    isLoading: tasksQuery.isPending,
+    isError: tasksQuery.isError,
+    refetchTasks: tasksQuery.refetch,
+    addTask: addMutation.mutateAsync,
+    isAddingTask: addMutation.isPending,
+    updateTask: (id: string, values: TaskFormValues) =>
+      updateMutation.mutateAsync({ id, values }),
+    isUpdatingTask: updateMutation.isPending,
+    deleteTask: deleteMutation.mutateAsync,
+    isDeletingTask: deleteMutation.isPending,
+  };
 }

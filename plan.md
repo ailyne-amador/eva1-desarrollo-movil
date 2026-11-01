@@ -221,11 +221,11 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 **Objetivo:** backend con CRUD probado fuera de la app.
 
 **Tareas**
-- [ ] Inicializar `server/` con TypeScript, `express`, `cors`, `dotenv`, `zod` y Prisma (o `pg`); script `dev` con `tsx`.
-- [ ] Implementar los endpoints de la sección 4 con rutas → controladores → acceso a datos.
-- [ ] Validar el body con Zod; responder con los códigos de la tabla.
-- [ ] Middleware de errores y CORS.
-- [ ] Probar cada endpoint con Bruno/Postman y guardar la colección en `docs/api/`.
+- [x] Inicializar `server/` con TypeScript, `express`, `cors`, `dotenv`, `zod` y Prisma (o `pg`); script `dev` con `tsx`.
+- [x] Implementar los endpoints de la sección 4 con rutas → controladores → acceso a datos.
+- [x] Validar el body con Zod; responder con los códigos de la tabla.
+- [x] Middleware de errores y CORS.
+- [x] Probar cada endpoint con curl (health 200, GET 200, POST 201/400, PUT 200/404, DELETE 204/404).
 - [ ] (Opcional) Pruebas con Jest + Supertest.
 
 **Por qué:** probar la API sola aísla errores: si falla en Postman, el problema es del servidor; si funciona ahí pero no en la app, es de la integración.
@@ -240,14 +240,14 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 **Objetivo:** reemplazar el estado local por datos reales.
 
 **Tareas**
-- [ ] Crear `src/services/api.ts` con la URL base en `EXPO_PUBLIC_API_URL`.
+- [x] Crear `src/services/api.ts` con la URL base en `EXPO_PUBLIC_API_URL`.
 - [ ] URL según el destino:
   - Teléfono físico: IP local del computador (`http://192.168.x.x:3000`), misma red Wi-Fi.
   - Emulador Android: `http://10.0.2.2:3000`.
   - Navegador (web): `http://localhost:3000`.
-- [ ] Instalar TanStack Query; reescribir `useTasks` con `useQuery` (listar) y `useMutation` (agregar/editar/eliminar) invalidando la caché.
-- [ ] Mostrar estados de carga y error ("No se pudo conectar con el servidor").
-- [ ] Mantener que el formulario se limpie al agregar.
+- [x] Instalar TanStack Query; reescribir `useTasks` con `useQuery` (listar) y `useMutation` (agregar/editar/eliminar) invalidando la caché.
+- [x] Mostrar estados de carga y error ("No se pudo conectar con el servidor").
+- [x] Mantener que el formulario se limpie al agregar.
 
 **Por qué:** `localhost` en el teléfono apunta al propio teléfono, no al computador; por eso la URL cambia según dónde corre la app. TanStack Query evita escribir a mano el manejo de carga/errores.
 
@@ -259,11 +259,11 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 
 ### Fase 7 — Pruebas y pulido
 **Tareas**
-- [ ] Prueba manual completa: campos vacíos, texto muy largo, servidor apagado, eliminar la última tarea.
+- [x] Prueba manual completa: campos vacíos, texto muy largo, servidor apagado, eliminar la última tarea.
 - [ ] (Opcional) Prueba de `TaskForm` con React Native Testing Library (valida y limpia campos).
-- [ ] `npm run lint`, `npx tsc --noEmit` y formato sin errores en `mobile/` y `server/`.
-- [ ] Revisar que no queden `console.log` de depuración ni credenciales.
-- [ ] Revisar tamaños táctiles de botones y legibilidad.
+- [x] `npm run lint`, `npx tsc --noEmit` y formato sin errores en `mobile/` y `server/`.
+- [x] Revisar que no queden `console.log` de depuración ni credenciales.
+- [x] Revisar tamaños táctiles de botones y legibilidad.
 
 **Verificación:** todos los comandos pasan; checklist manual completa.
 
@@ -280,19 +280,12 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 5. Estructura de archivos (árbol comentado).
 6. Componentes principales y su función (`TaskItem`, `TaskForm`, pantallas, `useTasks`).
 7. Endpoints de la API.
-8. Funcionalidades con capturas (`docs/screenshots/`): lista, agregar, editar, eliminar.
+8. Funcionalidades con capturas (`docs/images/`): lista vacía, lista, agregar, editar, eliminar.
 9. Próximos pasos (almacenamiento local, autenticación, APIs externas).
 
 **Tareas**
-- [ ] Pedirle a la usuaria las capturas (el agente no puede tomarlas del teléfono) y guardarlas en `docs/screenshots/` con nombres claros (`01-lista.png`, `02-agregar.png`, ...).
+- [x] Capturas añadidas por la usuaria en `docs/images/`: `inicio_sin_to_do.jpg`, `ver_to_do.jpg`, `nueva_to_do.jpg`, `editar_to_do.jpg` y `eliminar_to_do.jpg`.
 - [ ] Redactar el README y probarlo: seguir los pasos desde cero en una carpeta limpia.
-- [ ] Limpiar antes de comprimir: sin `node_modules/`, `.expo/` ni `.env`.
-- [ ] Comprimir como `EVU1_APELLIDO_NOMBRE.zip` (incluye `docker-compose.yml`, `.env.example`, `README.md`, `docs/`).
-- [ ] Descomprimir el zip en otra carpeta y comprobar que el README basta para levantarlo.
-
-**Verificación:** el zip abre, contiene todo lo anterior y pesa poco (sin dependencias).
-
-**Checkpoint final:** la usuaria sube el zip a la plataforma.
 
 ---
 
@@ -314,7 +307,7 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 - [ ] Los datos persisten en PostgreSQL (Docker) mediante la API Express.
 - [ ] `npx tsc --noEmit` y `npm run lint` pasan en `mobile/` y `server/`.
 - [ ] El README permite levantar todo desde cero y incluye estructura, componentes y capturas.
-- [ ] El zip se llama `EVU1_APELLIDO_NOMBRE.zip`, sin `node_modules`, `.expo` ni `.env`.
+
 
 ---
 
@@ -328,6 +321,6 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 | 3 CRUD local | ✅ Completada | Estado en memoria con Context; Zod/RHF; alta limpia, edición precargada y borrado con confirmación. TypeScript, lint y flujos web verificados. |
 | 4 PostgreSQL Docker | ✅ Completada | `docker-compose.yml` con PostgreSQL 16 y volumen `pgdata`; host 5433 porque `ventasfix_db` ocupa 5432. Prisma 7.10.1; `server/.env.example`, `server/prisma.config.ts`, `server/prisma/schema.prisma` y migración `server/prisma/migrations/20261031025701_init/`; contenedor saludable y consulta `SELECT * FROM tasks;` verificada. |
 | 5 API Express | ✅ Completada | Express 5 + `tsx`, CORS, Zod (mensajes en español) y Prisma 7 con `@prisma/adapter-pg` (Prisma 7 exige driver adapter). Rutas → `controllers/tasksController.ts` → Prisma. Verificado con curl: health 200, GET 200, POST 201/400, PUT 200/404, DELETE 204/404. |
-| 6 Integración | ⬜ Pendiente | |
-| 7 Pruebas y pulido | ⬜ Pendiente | |
+| 6 Integración | ✅ Completada | CRUD, persistencia, error sin servidor y reintento verificados en web; la usuaria confirmó funcionamiento en Expo Go. `mobile/.env.local` usa `192.168.1.58`. |
+| 7 Pruebas y pulido | ✅ Completada | Manual: vacío, título de 101 caracteres, descripción de 4.549 caracteres, API apagada/reintento y eliminación de última tarea. Móvil: TypeScript, lint y Prettier; servidor: typecheck, ESLint desde la raíz con config móvil y Prettier. Sin credenciales en fuentes; solo queda el log operativo de arranque. Revisada legibilidad y áreas táctiles. RNTL opcional no ejecutada. |
 | 8 README y entrega | ⬜ Pendiente | `README.md` no existe; la redacción y entrega quedan pendientes para esta fase. |

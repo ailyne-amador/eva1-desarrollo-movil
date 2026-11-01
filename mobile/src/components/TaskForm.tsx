@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -6,11 +7,7 @@ import {
   TextInput as NativeTextInput,
   View,
 } from "react-native";
-import {
-  Button,
-  Text,
-  TextInput as PaperTextInput,
-} from "react-native-paper";
+import { Button, Text, TextInput as PaperTextInput } from "react-native-paper";
 import { taskSchema, type TaskFormValues } from "../schemas/taskSchema";
 import { colors } from "../theme";
 
@@ -86,18 +83,30 @@ function TaskField({
 export function TaskForm({
   defaultValues = emptyValues,
   onSave,
+  onSuccess,
+  isSaving = false,
 }: {
   defaultValues?: TaskFormValues;
-  onSave: (values: TaskFormValues) => void;
+  onSave: (values: TaskFormValues) => Promise<void> | void;
+  onSuccess?: () => void;
+  isSaving?: boolean;
 }) {
   const { control, handleSubmit, reset } = useForm({
     resolver: zodResolver(taskSchema),
     defaultValues,
   });
 
-  const saveTask = handleSubmit((values) => {
+  const [saveError, setSaveError] = useState(false);
+  const saveTask = handleSubmit(async (values) => {
+    setSaveError(false);
+    try {
+      await onSave(values);
+    } catch {
+      setSaveError(true);
+      return;
+    }
     reset(defaultValues);
-    onSave(values);
+    onSuccess?.();
   });
 
   return (
@@ -129,9 +138,16 @@ export function TaskForm({
           />
         )}
       />
+      {saveError && (
+        <Text variant="bodyMedium" style={styles.errorText}>
+          No se pudo conectar con el servidor.
+        </Text>
+      )}
       <Button
         mode="contained"
         onPress={saveTask}
+        loading={isSaving}
+        disabled={isSaving}
         style={styles.save}
         contentStyle={styles.saveContent}
       >

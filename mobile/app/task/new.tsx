@@ -7,17 +7,16 @@ import { useTasks } from "../../src/hooks/useTasks";
 import { colors } from "../../src/theme";
 
 export default function NewTaskScreen() {
-  const { addTask } = useTasks();
+  const { addTask, isAddingTask } = useTasks();
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.screen}>
       <ScreenHeader title="Nueva tarea" />
       <TaskForm
-        onSave={(values) => {
-          addTask(values);
-          router.back();
-        }}
+        isSaving={isAddingTask}
+        onSave={addTask}
+        onSuccess={() => router.back()}
       />
     </SafeAreaView>
   );

@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
-import { Button, Dialog, Portal, Text } from "react-native-paper";
+import {
+  ActivityIndicator,
+  Button,
+  Dialog,
+  Portal,
+  Text,
+} from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskItem } from "../src/components/TaskItem";
 import { useTasks } from "../src/hooks/useTasks";
@@ -11,25 +17,59 @@ import type { Task } from "../src/types/Task";
 export default function Index() {
   const router = useRouter();
 
-  const { tasks, deleteTask } = useTasks();
+  const {
+    tasks,
+    deleteTask,
+    isLoading,
+    isError,
+    refetchTasks,
+    isDeletingTask,
+  } = useTasks();
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [deleteError, setDeleteError] = useState(false);
 
-  function confirmDelete() {
-    if (!taskToDelete) return;
-    deleteTask(taskToDelete.id);
+  function requestDelete(task: Task) {
+    setTaskToDelete(task);
+    setDeleteError(false);
+  }
+
+  function closeDeleteDialog() {
     setTaskToDelete(null);
+    setDeleteError(false);
+  }
+
+  async function confirmDelete() {
+    if (!taskToDelete) return;
+    try {
+      await deleteTask(taskToDelete.id);
+      closeDeleteDialog();
+    } catch {
+      setDeleteError(true);
+    }
   }
 
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>Tareas</Text>
-        <Text variant="bodyMedium" style={styles.count}>
-          {tasks.length === 0
-            ? "Nada pendiente"
-            : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
-        </Text>
+        {!isError && !isLoading && (
+          <Text variant="bodyMedium" style={styles.count}>
+            {tasks.length === 0
+              ? "Nada pendiente"
+              : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
+          </Text>
+        )}
       </View>
+      {isError && (
+        <View style={styles.serverError}>
+          <Text variant="bodyMedium" style={styles.errorText}>
+            No se pudo conectar con el servidor.
+          </Text>
+          <Button compact onPress={() => void refetchTasks()}>
+            Reintentar
+          </Button>
+        </View>
+      )}
       <FlatList
         data={tasks}
         keyExtractor={(task) => task.id}
@@ -39,7 +79,7 @@ export default function Index() {
             onEdit={() =>
               router.push({ pathname: "/task/[id]", params: { id: item.id } })
             }
-            onDelete={() => setTaskToDelete(item)}
+            onDelete={() => requestDelete(item)}
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -48,23 +88,27 @@ export default function Index() {
           tasks.length === 0 && styles.emptyList,
         ]}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text variant="bodyLarge" style={styles.emptyText}>
-              Aún no hay tareas.
-            </Text>
-            <Text variant="bodyMedium" style={styles.emptyHint}>
-              Crea la primera con el botón Nueva tarea.
-            </Text>
-          </View>
+          isLoading ? (
+            <View style={styles.status}>
+              <ActivityIndicator />
+              <Text variant="bodyMedium">Cargando tareas...</Text>
+            </View>
+          ) : isError ? null : (
+            <View style={styles.empty}>
+              <Text variant="bodyLarge" style={styles.emptyText}>
+                Aún no hay tareas.
+              </Text>
+              <Text variant="bodyMedium" style={styles.emptyHint}>
+                Crea la primera con el botón Nueva tarea.
+              </Text>
+            </View>
+          )
         }
       />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Crear nueva tarea"
-        style={({ pressed }) => [
-          styles.fab,
-          pressed && styles.fabPressed,
-        ]}
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         onPress={() => router.push("/task/new")}
       >
         <Text variant="titleMedium" style={styles.fabText}>
@@ -72,20 +116,27 @@ export default function Index() {
         </Text>
       </Pressable>
       <Portal>
-        <Dialog
-          visible={taskToDelete !== null}
-          onDismiss={() => setTaskToDelete(null)}
-        >
+        <Dialog visible={taskToDelete !== null} onDismiss={closeDeleteDialog}>
           <Dialog.Title>Eliminar tarea</Dialog.Title>
           <Dialog.Content>
             <Text>
               ¿Quieres eliminar “{taskToDelete?.title}”? Esta acción no se puede
               deshacer.
             </Text>
+            {deleteError && (
+              <Text style={styles.errorText}>
+                No se pudo conectar con el servidor.
+              </Text>
+            )}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setTaskToDelete(null)}>Cancelar</Button>
-            <Button onPress={confirmDelete} textColor={colors.error}>
+            <Button onPress={closeDeleteDialog}>Cancelar</Button>
+            <Button
+              onPress={confirmDelete}
+              textColor={colors.error}
+              loading={isDeletingTask}
+              disabled={isDeletingTask}
+            >
               Eliminar
             </Button>
           </Dialog.Actions>
@@ -114,6 +165,19 @@ const styles = StyleSheet.create({
   },
   count: {
     color: colors.muted,
+  },
+  status: {
+    alignItems: "center",
+    gap: 8,
+  },
+  serverError: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  errorText: {
+    color: colors.error,
+    textAlign: "center",
   },
   list: {
     flexGrow: 1,

@@ -17,10 +17,15 @@ app.use("/tasks", tasksRouter);
 
 // Middleware de errores: va último para capturar lo que falle arriba
 app.use(
-  (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
     console.error(err);
     res.status(500).json({ error: "Error interno del servidor" });
-  }
+  },
 );
 
 app.listen(PORT, () => {
