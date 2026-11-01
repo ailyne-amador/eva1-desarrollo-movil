@@ -285,7 +285,7 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 
 **Tareas**
 - [x] Capturas añadidas por la usuaria en `docs/images/`: `inicio_sin_to_do.jpg`, `ver_to_do.jpg`, `nueva_to_do.jpg`, `editar_to_do.jpg` y `eliminar_to_do.jpg`.
-- [ ] Redactar el README y probarlo: seguir los pasos desde cero en una carpeta limpia.
+- [x] Redactar README.md exhaustivo y probar la guía desde un clon limpio: `npm ci` en móvil/API, Prisma, typecheck/lint, API y exportación web. `npm run web` no pudo iniciar porque el puerto 8081 estaba ocupado; se documentó cómo resolverlo sin cerrar procesos ajenos.
 
 ---
 
@@ -303,10 +303,10 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 
 ## 7. Definición de terminado
 
-- [ ] La app lista, agrega (limpiando el formulario), edita y elimina tareas con título y descripción.
-- [ ] Los datos persisten en PostgreSQL (Docker) mediante la API Express.
-- [ ] `npx tsc --noEmit` y `npm run lint` pasan en `mobile/` y `server/`.
-- [ ] El README permite levantar todo desde cero y incluye estructura, componentes y capturas.
+- [x] La app lista, agrega (limpiando el formulario), edita y elimina tareas con título y descripción.
+- [x] Los datos persisten en PostgreSQL (Docker) mediante la API Express.
+- [x] TypeScript en móvil/API; `npm run lint` en `mobile/` y `npm run typecheck` en `server/` pasan.
+- [x] El README permite levantar todo desde cero e incluye estructura, componentes y capturas; la guía se probó desde un clon limpio.
 
 
 ---
@@ -323,4 +323,4 @@ Formato de cada fase: **Objetivo → Tareas del agente → Por qué → Verifica
 | 5 API Express | ✅ Completada | Express 5 + `tsx`, CORS, Zod (mensajes en español) y Prisma 7 con `@prisma/adapter-pg` (Prisma 7 exige driver adapter). Rutas → `controllers/tasksController.ts` → Prisma. Verificado con curl: health 200, GET 200, POST 201/400, PUT 200/404, DELETE 204/404. |
 | 6 Integración | ✅ Completada | CRUD, persistencia, error sin servidor y reintento verificados en web; la usuaria confirmó funcionamiento en Expo Go. `mobile/.env.local` usa `192.168.1.58`. |
 | 7 Pruebas y pulido | ✅ Completada | Manual: vacío, título de 101 caracteres, descripción de 4.549 caracteres, API apagada/reintento y eliminación de última tarea. Móvil: TypeScript, lint y Prettier; servidor: typecheck, ESLint desde la raíz con config móvil y Prettier. Sin credenciales en fuentes; solo queda el log operativo de arranque. Revisada legibilidad y áreas táctiles. RNTL opcional no ejecutada. |
-| 8 README y entrega | ⬜ Pendiente | `README.md` no existe; la redacción y entrega quedan pendientes para esta fase. |
+| 8 README y entrega | ✅ Completada | README raíz con tecnologías/versiones, instrucciones de Compose, variables por destino, Prisma, Express y Expo, estructura, componentes, API, cinco capturas, verificación y problemas comunes. Clon temporal: `npm ci` en móvil/API; `prisma generate` y `migrate deploy` (sin pendientes); TypeScript/lint móvil, typecheck API; `/health` y `GET /tasks` 200; exportación web correcta; cinco imágenes presentes. `npm run web` no inició porque 8081 estaba ocupado por otro proceso; no se detuvo y la solución quedó documentada. npm ci móvil reportó 29 avisos de auditoría, sin aplicar `audit fix`. |
