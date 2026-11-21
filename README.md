@@ -255,29 +255,37 @@ Los errores de validación responden con `400` y un objeto `errors` con los camp
 
 La pantalla informa cuando todavía no hay tareas y permite iniciar el alta.
 
-![Lista vacía de tareas](docs/images/inicio_sin_to_do.jpg)
+![Lista vacía de tareas](./docs/images/inicio_sin_to_do.jpg)
 
 ### Lista de tareas
 
-Cada fila muestra título y descripción; al pulsarla se abre su tarjeta. Toca el título o la descripción para sobrescribirlos; el botón **Eliminar** es pequeño y está a un costado de la tarjeta.
+Cada fila muestra título y descripción; al pulsarla se abre su tarjeta de detalle.
 
-![Lista con tareas](docs/images/ver_to_do.jpg)
+![Lista con tareas](./docs/images/ver_to_do.jpg)
+
+### Ver detalle
+
+La tarjeta muestra la tarea y el botón compacto **Eliminar** a un costado. Para editar, toca el título o la descripción.
+
+![Tarjeta de detalle de una tarea](./docs/images/detalle-to-do.jpeg)
 
 ### Agregar tarea
 
 El título es obligatorio y la descripción opcional. Al guardar correctamente, la app vuelve a la lista y limpia el formulario.
 
-![Formulario para agregar una tarea](docs/images/nueva_to_do.jpg)
+![Formulario para agregar una tarea](./docs/images/nueva_to_do.jpg)
 
 ### Editar desde la tarjeta
 
 Toca el título o la descripción, cambia el texto y pulsa **Guardar**. **Cancelar** descarta el cambio; no hay una pantalla separada de edición.
 
+![Edición en línea desde la tarjeta](./docs/images/editar-to-do.jpeg)
+
 ### Eliminar tarea
 
 La app solicita confirmación antes de borrar la tarea.
 
-![Confirmación para eliminar una tarea](docs/images/eliminar_to_do.jpg)
+![Confirmación para eliminar una tarea](./docs/images/eliminar_to_do.jpg)
 
 ## Verificación local
 
