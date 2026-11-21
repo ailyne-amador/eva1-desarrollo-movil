@@ -1,18 +1,80 @@
+import { getAuthToken } from "./authStorage";
 import type { TaskFormValues } from "../schemas/taskSchema";
 import type { Task } from "../types/Task";
 
 type ApiTask = Omit<Task, "id"> & { id: number };
+type RequestOptions = { authenticated?: boolean };
+type UnauthorizedHandler = () => void | Promise<void>;
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "");
 const connectionError = "No se pudo conectar con el servidor.";
+let unauthorizedHandler: UnauthorizedHandler | undefined;
 
-async function request(path: string, init?: RequestInit): Promise<Response> {
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  unauthorizedHandler = handler ?? undefined;
+}
+
+async function request(
+  path: string,
+  init?: RequestInit,
+  { authenticated = true }: RequestOptions = {},
+): Promise<Response> {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "");
   if (!apiUrl) throw new Error(connectionError);
 
-  const response = await fetch(`${apiUrl}${path}`, init);
+  const headers = new Headers(init?.headers);
+  if (authenticated) {
+    const token = await getAuthToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${apiUrl}${path}`, { ...init, headers });
+  if (response.status === 401 && authenticated) {
+    await unauthorizedHandler?.();
+    throw new Error("La sesión expiró. Inicia sesión de nuevo.");
+  }
   if (response.status === 404) throw new Error("Tarea no encontrada");
-  if (!response.ok) throw new Error(connectionError);
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: unknown;
+    } | null;
+    throw new Error(
+      typeof body?.error === "string" ? body.error : connectionError,
+    );
+  }
   return response;
+}
+
+type AuthUser = { id: number; email: string };
+type AuthResponse = { token: string; user: AuthUser };
+
+async function authenticate(
+  path: "/auth/login" | "/auth/register",
+  email: string,
+  password: string,
+): Promise<AuthResponse> {
+  const response = await request(
+    path,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    },
+    { authenticated: false },
+  );
+  return (await response.json()) as AuthResponse;
+}
+
+export function login(email: string, password: string) {
+  return authenticate("/auth/login", email, password);
+}
+
+export function register(email: string, password: string) {
+  return authenticate("/auth/register", email, password);
+}
+
+export async function getCurrentUser(): Promise<AuthUser> {
+  const response = await request("/auth/me");
+  return (await response.json()) as AuthUser;
 }
 
 function toTask({ id, ...task }: ApiTask): Task {

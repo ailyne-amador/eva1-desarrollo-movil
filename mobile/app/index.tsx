@@ -11,11 +11,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskItem } from "../src/components/TaskItem";
 import { useTasks } from "../src/hooks/useTasks";
+import { useAuth } from "../src/context/AuthContext";
 import { colors, displayFont } from "../src/theme";
 import type { Task } from "../src/types/Task";
 
 export default function Index() {
   const router = useRouter();
+  const { signOut } = useAuth();
 
   const {
     tasks,
@@ -51,14 +53,19 @@ export default function Index() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Tareas</Text>
-        {!isError && !isLoading && (
-          <Text variant="bodyMedium" style={styles.count}>
-            {tasks.length === 0
-              ? "Nada pendiente"
-              : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
-          </Text>
-        )}
+        <View style={styles.heading}>
+          <Text style={styles.title}>Tareas</Text>
+          {!isError && !isLoading && (
+            <Text variant="bodyMedium" style={styles.count}>
+              {tasks.length === 0
+                ? "Nada pendiente"
+                : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
+            </Text>
+          )}
+        </View>
+        <Button compact onPress={() => void signOut()}>
+          Cerrar sesión
+        </Button>
       </View>
       {isError && (
         <View style={styles.serverError}>
@@ -155,9 +162,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 12,
+  },
+  heading: {
     gap: 2,
   },
   title: {

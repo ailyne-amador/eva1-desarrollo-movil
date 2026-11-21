@@ -173,21 +173,21 @@ Primero las herramientas, para que cada fase siguiente nazca con sus pruebas.
 
 ## Fase 3 — Autenticación en la app
 
-- [ ] `src/services/authStorage.ts`: guardar/leer/borrar el token con `expo-secure-store` (respaldo `localStorage` solo en web).
-- [ ] `src/context/AuthContext.tsx`: estado `loading | signedOut | signedIn`, `signIn`, `signUp`, `signOut`; al iniciar, leer el token y validarlo con `GET /auth/me`. **Si no hay red, mantener la sesión con el token guardado** (importante para la fase 7).
-- [ ] `services/api.ts`: enviar `Authorization: Bearer <token>` en todas las llamadas; ante `401`, cerrar sesión.
-- [ ] Pantallas `app/login.tsx` y `app/register.tsx` con React Hook Form + Zod + Paper (mismo patrón que `TaskForm`, respetando la bifurcación nativo/web de los inputs). Campo de contraseña con ocultar/mostrar y mensajes de error en español.
-- [ ] `app/_layout.tsx`: proteger las rutas de tareas con `Stack.Protected` (o redirección equivalente según la documentación de Expo Router SDK 57) y mostrar login si no hay sesión.
-- [ ] Botón **Cerrar sesión** en la lista. Al cambiar de usuario, limpiar la caché de TanStack Query (`queryClient.clear()`).
-- [ ] Reglas de validación del formulario compartidas en espíritu con el servidor (8–128 caracteres).
+- [x] `src/services/authStorage.ts`: guardar/leer/borrar el token con `expo-secure-store` (respaldo `localStorage` solo en web).
+- [x] `src/context/AuthContext.tsx`: estado `loading | signedOut | signedIn`, `signIn`, `signUp`, `signOut`; al iniciar, leer el token y validarlo con `GET /auth/me`. **Si no hay red, mantener la sesión con el token guardado** (importante para la fase 7).
+- [x] `services/api.ts`: enviar `Authorization: Bearer <token>` en todas las llamadas; ante `401`, cerrar sesión.
+- [x] Pantallas `app/login.tsx` y `app/register.tsx` con React Hook Form + Zod + Paper (mismo patrón que `TaskForm`, respetando la bifurcación nativo/web de los inputs). Campo de contraseña con ocultar/mostrar y mensajes de error en español.
+- [x] `app/_layout.tsx`: proteger las rutas de tareas con `Stack.Protected` (o redirección equivalente según la documentación de Expo Router SDK 57) y mostrar login si no hay sesión.
+- [x] Botón **Cerrar sesión** en la lista. Al cambiar de usuario, limpiar la caché de TanStack Query (`queryClient.clear()`).
+- [x] Reglas de validación del formulario compartidas en espíritu con el servidor (8–128 caracteres).
 
 **Pruebas (RNTL)**
-- [ ] Login con campos vacíos muestra errores y no llama a la API.
-- [ ] Login correcto guarda el token y navega a la lista (mock de `authStorage` y `api`).
-- [ ] Login incorrecto muestra "Credenciales inválidas".
-- [ ] Una respuesta `401` cierra la sesión.
+- [x] Login con campos vacíos muestra errores y no llama a la API.
+- [x] Login correcto guarda el token y navega a la lista (mock de `authStorage` y `api`).
+- [x] Login incorrecto muestra "Credenciales inválidas".
+- [x] Una respuesta `401` cierra la sesión.
 
-**Checkpoint:** registrar dos usuarios y comprobar en la app que cada uno ve solo sus tareas.
+**Checkpoint pendiente (integración manual):** registrar dos usuarios y comprobar en la app que cada uno ve solo sus tareas.
 
 ## Fase 4 — Modelo ampliado (ubicación y foto)
 
