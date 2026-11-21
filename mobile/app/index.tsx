@@ -76,8 +76,11 @@ export default function Index() {
         renderItem={({ item }) => (
           <TaskItem
             task={item}
-            onEdit={() =>
-              router.push({ pathname: "/task/[id]", params: { id: item.id } })
+            onView={() =>
+              router.push({
+                pathname: "/task/view/[id]",
+                params: { id: item.id },
+              })
             }
             onDelete={() => requestDelete(item)}
           />

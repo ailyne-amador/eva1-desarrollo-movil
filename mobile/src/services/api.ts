@@ -10,14 +10,24 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   if (!apiUrl) throw new Error(connectionError);
 
   const response = await fetch(`${apiUrl}${path}`, init);
+  if (response.status === 404) throw new Error("Tarea no encontrada");
   if (!response.ok) throw new Error(connectionError);
   return response;
+}
+
+function toTask({ id, ...task }: ApiTask): Task {
+  return { ...task, id: String(id) };
+}
+
+export async function getTask(id: string): Promise<Task> {
+  const response = await request(`/tasks/${encodeURIComponent(id)}`);
+  return toTask((await response.json()) as ApiTask);
 }
 
 export async function getTasks(): Promise<Task[]> {
   const response = await request("/tasks");
   const tasks = (await response.json()) as ApiTask[];
-  return tasks.map(({ id, ...task }) => ({ ...task, id: String(id) }));
+  return tasks.map(toTask);
 }
 
 export async function createTask(values: TaskFormValues): Promise<void> {

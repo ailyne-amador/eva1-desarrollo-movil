@@ -7,6 +7,22 @@ export async function listTasks(_req: Request, res: Response) {
   const tasks = await prisma.task.findMany({ orderBy: { createdAt: "desc" } });
   res.json(tasks);
 }
+// GET /tasks/:id — obtiene una tarea por ID
+export async function getTask(req: Request, res: Response) {
+  const rawId = typeof req.params.id === "string" ? req.params.id : "";
+  const id = Number(rawId);
+  if (
+    !/^\d+$/.test(rawId) ||
+    !Number.isSafeInteger(id) ||
+    id < 1 ||
+    id > 2_147_483_647
+  ) {
+    return res.status(400).json({ error: "ID de tarea no válido" });
+  }
+  const task = await prisma.task.findUnique({ where: { id } });
+  if (!task) return res.status(404).json({ error: "Tarea no encontrada" });
+  res.json(task);
+}
 
 // POST /tasks — crea una tarea; 201 si ok, 400 si el body no valida
 export async function createTask(req: Request, res: Response) {
