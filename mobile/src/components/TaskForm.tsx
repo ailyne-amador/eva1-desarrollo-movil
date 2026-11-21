@@ -81,19 +81,17 @@ function TaskField({
 }
 
 export function TaskForm({
-  defaultValues = emptyValues,
   onSave,
   onSuccess,
   isSaving = false,
 }: {
-  defaultValues?: TaskFormValues;
   onSave: (values: TaskFormValues) => Promise<void> | void;
   onSuccess?: () => void;
   isSaving?: boolean;
 }) {
   const { control, handleSubmit, reset } = useForm({
     resolver: zodResolver(taskSchema),
-    defaultValues,
+    defaultValues: emptyValues,
   });
 
   const [saveError, setSaveError] = useState(false);
@@ -105,7 +103,7 @@ export function TaskForm({
       setSaveError(true);
       return;
     }
-    reset(defaultValues);
+    reset(emptyValues);
     onSuccess?.();
   });
 
@@ -129,8 +127,8 @@ export function TaskForm({
         name="description"
         render={({ field, fieldState }) => (
           <TaskField
-            label="Descripción"
-            value={field.value}
+            label="Descripción (opcional)"
+            value={field.value ?? ""}
             onChangeText={field.onChange}
             onBlur={field.onBlur}
             error={fieldState.error?.message}

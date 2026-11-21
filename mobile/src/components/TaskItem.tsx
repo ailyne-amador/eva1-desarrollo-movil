@@ -5,24 +5,24 @@ import type { Task } from "../types/Task";
 
 type TaskItemProps = {
   task: Task;
-  onEdit: () => void;
+  onView: () => void;
   onDelete: () => void;
 };
 
-export function TaskItem({ task, onEdit, onDelete }: TaskItemProps) {
+export function TaskItem({ task, onView, onDelete }: TaskItemProps) {
   return (
     <View style={styles.row}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Editar ${task.title}`}
-        onPress={onEdit}
+        accessibilityLabel={`Ver ${task.title}`}
+        onPress={onView}
         style={({ pressed }) => [styles.content, pressed && styles.pressed]}
       >
         <Text variant="titleMedium" style={styles.title} numberOfLines={1}>
           {task.title}
         </Text>
         <Text variant="bodyMedium" style={styles.description}>
-          {task.description}
+          {task.description?.trim() || "Sin descripción"}
         </Text>
       </Pressable>
       <Pressable

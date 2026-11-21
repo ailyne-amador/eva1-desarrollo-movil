@@ -3,7 +3,7 @@
 **Asignatura:** Desarrollo Móvil  
 **Estudiante:** Ailyne Amador
 
-Aplicación móvil para crear, listar, editar y eliminar tareas. La app está desarrollada con Expo y React Native; una API REST en Express guarda los datos en PostgreSQL.
+Aplicación móvil para crear, listar, consultar, editar y eliminar tareas. La app está desarrollada con Expo y React Native; una API REST en Express guarda los datos en PostgreSQL.
 
 ## Tecnologías
 
@@ -163,7 +163,7 @@ El volumen `pgdata` se conserva. No uses `docker compose down -v` si quieres man
 │   │   ├── index.tsx                 # Lista de tareas
 │   │   └── task/
 │   │       ├── new.tsx               # Alta de tarea
-│   │       └── [id].tsx               # Edición por identificador
+│   │       └── view/[id].tsx         # Detalle y edición en línea
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── ScreenHeader.tsx       # Encabezado de pantallas
@@ -201,22 +201,23 @@ Los archivos `server/.env` y `mobile/.env.local` se crean localmente a partir de
 
 | Archivo o componente | Responsabilidad |
 |---|---|
-| `mobile/app/index.tsx` | Consulta y muestra tareas, estados de carga/error, estado vacío, acceso a crear/editar y confirmación de eliminación. |
+| `mobile/app/index.tsx` | Consulta y muestra tareas, estados de carga/error, estado vacío, acceso a crear y abrir detalle, y confirmación de eliminación. |
 | `mobile/app/task/new.tsx` | Presenta el formulario para crear; al guardar con éxito vuelve a la lista. |
-| `mobile/app/task/[id].tsx` | Busca la tarea por ID, precarga el formulario y guarda sus cambios. |
-| `TaskItem` | Muestra título y descripción; ofrece edición y un botón para eliminar junto a cada tarea. |
-| `TaskForm` | Comparte el formulario de alta/edición, valida con React Hook Form y Zod, muestra errores y restablece los valores predeterminados tras guardar (vacíos para una tarea nueva). |
-| `useTasks` | Usa TanStack Query para listar y mutar datos; invalida la consulta de tareas después de cada alta, edición o eliminación. |
-| `src/services/api.ts` | Centraliza las solicitudes HTTP y convierte el ID numérico de PostgreSQL a `string` en el tipo usado por la app. |
+| `mobile/app/task/view/[id].tsx` | Consulta `GET /tasks/:id`, muestra la tarjeta y permite editar título/descripción en línea o eliminar. |
+| `TaskItem` | Muestra título y descripción; al pulsarla abre el detalle. Mantiene el botón para eliminar junto a la fila. |
+| `TaskForm` | Formulario de alta; título obligatorio y descripción opcional, con validación React Hook Form + Zod. |
+| `useTasks` / `useTask` | TanStack Query para lista, detalle y mutaciones; invalida las consultas de tareas tras cada operación. |
+| `src/services/api.ts` | Centraliza las solicitudes HTTP, consulta tareas individuales y convierte el ID numérico a `string` en la app. |
 | `server/src/routes/tasks.ts` | Asocia las rutas HTTP con el controlador. |
-| `tasksController.ts` | Valida las solicitudes, ejecuta las operaciones Prisma y responde con los códigos HTTP. |
-| `server/prisma/schema.prisma` | Define `Task`: ID autoincremental, título, descripción y fechas `createdAt`/`updatedAt`. |
+| `tasksController.ts` | Valida solicitudes, consulta Prisma y responde con los códigos HTTP. |
+| `server/prisma/schema.prisma` | Define `Task`: ID, título, descripción nullable y fechas `createdAt`/`updatedAt`. |
+| `server/prisma/migrations/20261121000000_optional_description/` | Permite guardar `description` como `NULL` sin perder los valores existentes. |
 
 ### Reglas de las tareas
 
 - `title`: obligatorio y con un máximo de 100 caracteres.
-- `description`: obligatoria; no tiene un máximo definido por el esquema.
-- El formulario móvil recorta espacios al inicio y al final y valida que quede texto. La API valida strings de longitud mínima 1 y limita el título a 100 caracteres, pero no recorta espacios; una solicitud directa con solo espacios puede pasar la validación del servidor.
+- `description`: opcional y sin máximo. La API normaliza el valor ausente, nulo o en blanco a `NULL`; PostgreSQL permite `NULL`.
+- El formulario recorta los espacios de ambos campos. La API recorta la descripción, pero no el título; una solicitud directa con un título formado solo por espacios puede pasar la validación del servidor.
 - La base usa `SERIAL` para el ID y guarda las fechas `created_at` y `updated_at`.
 - La app no implementa autenticación ni almacenamiento local; la persistencia corresponde a PostgreSQL mediante la API.
 
@@ -227,9 +228,10 @@ La base URL predeterminada es `http://localhost:3000`. CORS está habilitado par
 | Método | Ruta | Body | Respuesta esperada |
 |---|---|---|---|
 | `GET` | `/health` | — | `200`, `{"status":"ok"}` |
-| `GET` | `/tasks` | — | `200`, arreglo de tareas ordenado de más reciente a más antigua; puede ser `[]`. |
-| `POST` | `/tasks` | `{"title":"...","description":"..."}` | `201` y la tarea creada; `400` si el body no valida. |
-| `PUT` | `/tasks/:id` | `{"title":"...","description":"..."}` | `200` y la tarea actualizada; `400` si no valida; `404` si no existe. Requiere ambos campos. |
+| `GET` | `/tasks` | — | `200`, arreglo ordenado de más reciente a más antigua; puede ser `[]`. |
+| `GET` | `/tasks/:id` | — | `200` y la tarea; `400` si el ID no es un entero positivo; `404` si no existe. |
+| `POST` | `/tasks` | `{"title":"...","description":"..."}` (`description` opcional) | `201` y la tarea creada; `400` si el body no valida. |
+| `PUT` | `/tasks/:id` | Título obligatorio; descripción opcional | `200` y la tarea actualizada; `400` si el body no valida; `404` si no existe. La descripción omitida o en blanco se guarda como `null`. |
 | `DELETE` | `/tasks/:id` | — | `204` sin body; `404` si no existe. |
 
 Una tarea devuelta por la API tiene esta forma (fechas ISO serializadas en JSON e ID numérico):
@@ -243,8 +245,9 @@ Una tarea devuelta por la API tiene esta forma (fechas ISO serializadas en JSON 
   "updatedAt": "2026-11-01T12:00:00.000Z"
 }
 ```
+Cuando no se proporciona descripción, la respuesta de la API incluye `"description": null`.
 
-Los errores de validación responden con `400` y un objeto `errors` con los campos que fallaron. Si una tarea no existe, `PUT` y `DELETE` responden `404` con `{"error":"Tarea no encontrada"}`. Los errores internos responden `500` con `{"error":"Error interno del servidor"}`.
+Los errores de validación responden con `400` y un objeto `errors` con los campos que fallaron. Si una tarea no existe, `GET`, `PUT` y `DELETE` responden `404` con `{"error":"Tarea no encontrada"}`; `GET` responde `400` para un ID inválido. Los errores internos responden `500` con `{"error":"Error interno del servidor"}`.
 
 ## Funcionalidades y capturas
 
@@ -256,21 +259,19 @@ La pantalla informa cuando todavía no hay tareas y permite iniciar el alta.
 
 ### Lista de tareas
 
-Cada fila muestra el título y la descripción. Desde la fila se puede editar; el botón **Eliminar** está junto a cada tarea.
+Cada fila muestra título y descripción; al pulsarla se abre su tarjeta. Toca el título o la descripción para sobrescribirlos; el botón **Eliminar** es pequeño y está a un costado de la tarjeta.
 
 ![Lista con tareas](docs/images/ver_to_do.jpg)
 
 ### Agregar tarea
 
-Título y descripción son obligatorios. Al guardar correctamente, la app vuelve a la lista y limpia el formulario.
+El título es obligatorio y la descripción opcional. Al guardar correctamente, la app vuelve a la lista y limpia el formulario.
 
 ![Formulario para agregar una tarea](docs/images/nueva_to_do.jpg)
 
-### Editar tarea
+### Editar desde la tarjeta
 
-El formulario aparece precargado con los valores actuales.
-
-![Formulario para editar una tarea](docs/images/editar_to_do.jpg)
+Toca el título o la descripción, cambia el texto y pulsa **Guardar**. **Cancelar** descarta el cambio; no hay una pantalla separada de edición.
 
 ### Eliminar tarea
 
@@ -291,7 +292,7 @@ npm run lint
 npm run typecheck
 ```
 
-El recorrido manual esperado es: abrir la lista; crear una tarea y comprobar que el formulario se limpia; editarla; cancelar y confirmar una eliminación; intentar guardar campos vacíos; y apagar temporalmente la API para comprobar que la app muestra el error de conexión y permite reintentar. El paquete del servidor no define un script `lint` ni `test`; Jest y React Native Testing Library no están configurados en esta entrega.
+El recorrido manual esperado es: abrir la lista; crear una tarea con título y sin descripción; comprobar que aparece como “Sin descripción”; abrir su tarjeta, tocar el título y luego la descripción para editarlos, probando **Guardar** y **Cancelar**; cancelar y confirmar una eliminación; comprobar la validación del título vacío; y apagar temporalmente la API para probar el error y el reintento. El paquete del servidor no define un script `lint` ni `test`; Jest y React Native Testing Library no están configurados en esta entrega.
 
 ## Problemas comunes
 
