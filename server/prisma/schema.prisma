@@ -21,10 +21,15 @@ model Task {
   id          Int      @id @default(autoincrement())
   title       String   @db.VarChar(100)
   description String?  @db.Text
+  latitude    Float?
+  longitude   Float?
+  photoPath   String?  @map("photo_path")
+  clientId    String?  @map("client_id") @db.Uuid
   userId      Int?     @map("user_id")
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  @@unique([userId, clientId])
   @@map("tasks")
 }

@@ -9,6 +9,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
+      upsert: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
@@ -64,18 +65,103 @@ describe("tasks authentication", () => {
       id: 1,
       title: "Tarea",
       description: null,
+      latitude: null,
+      longitude: null,
+      photoPath: null,
+      clientId: null,
       userId: 7,
     });
 
     const response = await request(app)
       .post("/tasks")
       .set("Authorization", authHeader(7))
-      .send({ title: "Tarea" });
+      .send({ title: "Tarea", latitude: null, longitude: null });
 
     expect(response.status).toBe(201);
-    expect(prismaMock.task.create).toHaveBeenCalledWith({
-      data: { title: "Tarea", description: null, userId: 7 },
+    expect(response.body).toMatchObject({
+      id: 1,
+      title: "Tarea",
+      latitude: null,
+      longitude: null,
+      clientId: null,
+      hasPhoto: false,
     });
+    expect(response.body).not.toHaveProperty("photoPath");
+    expect(prismaMock.task.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        title: "Tarea",
+        description: null,
+        latitude: null,
+        longitude: null,
+        userId: 7,
+      }),
+    });
+  });
+  it("rejects coordinates outside geographic ranges", async () => {
+    const response = await request(app)
+      .post("/tasks")
+      .set("Authorization", authHeader(7))
+      .send({ title: "Tarea", latitude: 91, longitude: 10 });
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.task.create).not.toHaveBeenCalled();
+    expect(prismaMock.task.upsert).not.toHaveBeenCalled();
+  });
+
+  it("requires latitude and longitude together", async () => {
+    const response = await request(app)
+      .post("/tasks")
+      .set("Authorization", authHeader(7))
+      .send({ title: "Tarea", latitude: 10 });
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.task.create).not.toHaveBeenCalled();
+    expect(prismaMock.task.upsert).not.toHaveBeenCalled();
+  });
+
+  it("returns the same task for repeated client IDs", async () => {
+    const clientId = "550e8400-e29b-41d4-a716-446655440000";
+    prismaMock.task.upsert.mockResolvedValue({
+      id: 11,
+      title: "Tarea guardada",
+      description: null,
+      latitude: 10,
+      longitude: 20,
+      photoPath: "uploads/7/photo.jpg",
+      clientId,
+      userId: 7,
+    });
+
+    const create = (title: string) =>
+      request(app)
+        .post("/tasks")
+        .set("Authorization", authHeader(7))
+        .send({ title, clientId, latitude: 10, longitude: 20 });
+    const first = await create("Tarea inicial");
+    const duplicate = await create("Reintento");
+
+    expect(first.status).toBe(201);
+    expect(duplicate.status).toBe(201);
+    expect(prismaMock.task.upsert).toHaveBeenCalledTimes(2);
+    expect(prismaMock.task.upsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: { userId_clientId: { userId: 7, clientId } },
+        update: {},
+        create: expect.objectContaining({
+          title: "Tarea inicial",
+          latitude: 10,
+          longitude: 20,
+          clientId,
+          userId: 7,
+        }),
+      }),
+    );
+    expect(duplicate.body.id).toBe(first.body.id);
+    expect(duplicate.body.title).toBe("Tarea guardada");
+    expect(duplicate.body.hasPhoto).toBe(true);
+    expect(duplicate.body).not.toHaveProperty("photoPath");
+    expect(prismaMock.task.create).not.toHaveBeenCalled();
   });
 
   it("returns 404 when another user reads, updates, or deletes a task", async () => {

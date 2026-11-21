@@ -191,9 +191,9 @@ Primero las herramientas, para que cada fase siguiente nazca con sus pruebas.
 
 ## Fase 4 — Modelo ampliado (ubicación y foto)
 
-- [ ] Migración: `latitude`, `longitude`, `photo_path`, `client_id` y la restricción `@@unique([userId, clientId])`.
-- [ ] Actualizar, en este orden (como indica `documentacion.md`, sección 8): esquemas Zod móvil y servidor → `schema.prisma` + migración + `prisma generate` → `types/Task.ts` → `api.ts` → `tasksController.ts`.
-- [ ] `POST /tasks` idempotente por `clientId`.
+- [x] Migración: `latitude`, `longitude`, `photo_path`, `client_id` y la restricción `@@unique([userId, clientId])`.
+- [x] Actualizar, en este orden (como indica `documentacion.md`, sección 8): esquemas Zod móvil y servidor → `schema.prisma` + migración + `prisma generate` → `types/Task.ts` → `api.ts` → `tasksController.ts`.
+- [x] `POST /tasks` idempotente por `clientId`.
 
 **Pruebas:** `latitude` fuera de rango → `400`; solo una de las dos coordenadas → `400`; `POST` repetido con el mismo `clientId` no crea un duplicado.
 

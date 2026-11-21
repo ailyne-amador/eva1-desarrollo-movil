@@ -8,6 +8,10 @@ test("muestra el título de la tarea", async () => {
         id: "1",
         title: "Preparar evaluación",
         description: null,
+        latitude: null,
+        longitude: null,
+        clientId: null,
+        hasPhoto: false,
       }}
       onView={() => {}}
       onDelete={() => {}}

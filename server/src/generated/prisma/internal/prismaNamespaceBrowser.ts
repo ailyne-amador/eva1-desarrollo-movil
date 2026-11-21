@@ -85,6 +85,10 @@ export const TaskScalarFieldEnum = {
   id: 'id',
   title: 'title',
   description: 'description',
+  latitude: 'latitude',
+  longitude: 'longitude',
+  photoPath: 'photoPath',
+  clientId: 'clientId',
   userId: 'userId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

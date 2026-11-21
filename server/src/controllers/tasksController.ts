@@ -1,6 +1,11 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { taskSchema } from "../schemas/taskSchema";
+import { createTaskSchema, taskSchema } from "../schemas/taskSchema";
+
+function toTaskResponse<T extends { photoPath: string | null }>(task: T) {
+  const { photoPath, ...fields } = task;
+  return { ...fields, hasPhoto: Boolean(photoPath) };
+}
 
 // GET /tasks — lista las tareas del usuario, más recientes primero
 export async function listTasks(req: Request, res: Response) {
@@ -8,7 +13,7 @@ export async function listTasks(req: Request, res: Response) {
     where: { userId: req.userId },
     orderBy: { createdAt: "desc" },
   });
-  res.json(tasks);
+  return res.json(tasks.map(toTaskResponse));
 }
 function parseTaskId(rawId: unknown): number | null {
   if (typeof rawId !== "string" || !/^\d+$/.test(rawId)) return null;
@@ -23,19 +28,26 @@ export async function getTask(req: Request, res: Response) {
   if (id === null) return res.status(400).json({ error: "ID de tarea no válido" });
   const task = await prisma.task.findFirst({ where: { id, userId: req.userId } });
   if (!task) return res.status(404).json({ error: "Tarea no encontrada" });
-  return res.json(task);
+  return res.json(toTaskResponse(task));
 }
 
 // POST /tasks — crea una tarea para el usuario autenticado
 export async function createTask(req: Request, res: Response) {
-  const parsed = taskSchema.safeParse(req.body);
+  const parsed = createTaskSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
   }
-  const task = await prisma.task.create({
-    data: { ...parsed.data, userId: req.userId },
-  });
-  return res.status(201).json(task);
+  const data = { ...parsed.data, userId: req.userId };
+  const task = data.clientId
+    ? await prisma.task.upsert({
+        where: {
+          userId_clientId: { userId: req.userId, clientId: data.clientId },
+        },
+        update: {},
+        create: data,
+      })
+    : await prisma.task.create({ data });
+  return res.status(201).json(toTaskResponse(task));
 }
 
 // PUT /tasks/:id — actualiza solo tareas propias
@@ -51,7 +63,7 @@ export async function updateTask(req: Request, res: Response) {
       where: { id, userId: req.userId },
       data: parsed.data,
     });
-    return res.json(task);
+    return res.json(toTaskResponse(task));
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "P2025") {
       return res.status(404).json({ error: "Tarea no encontrada" });
