@@ -6,8 +6,10 @@ import {
   updateTask,
   deleteTask,
 } from "../controllers/tasksController";
+import { requireAuth } from "../middleware/requireAuth";
 
 export const tasksRouter = Router();
+tasksRouter.use(requireAuth);
 
 tasksRouter.get("/", listTasks);
 tasksRouter.get("/:id", getTask);

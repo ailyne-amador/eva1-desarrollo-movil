@@ -155,6 +155,29 @@ flowchart LR
 
 El esquema Prisma y la migración inicial están en `server/prisma/schema.prisma` y `server/prisma/migrations/20261031025701_init/migration.sql`.
 
+### Esquema Prisma actual
+
+```prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  title       String   @db.VarChar(100)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("tasks")
+}
+```
+
 ### Endpoints implementados
 
 Base local predeterminada: `http://localhost:3000`.
