@@ -1,4 +1,4 @@
-# To-Do List móvil — Evaluación Sumativa, Unidad 1
+# To-Do List móvil — Evaluación Sumativa
 
 **Asignatura:** Desarrollo Móvil  
 **Estudiante:** Ailyne Amador
@@ -15,8 +15,6 @@ Este proyecto entrega una aplicación de lista de tareas con las siguientes capa
 - **Ubicación GPS** opcional que resuelve la ciudad mediante BigDataCloud.
 - **Modo offline** que persiste tareas en `expo-sqlite` y las sincroniza al recuperar la conexión.
 - **Pruebas automatizadas** en cliente (`jest-expo` + RNTL) y servidor (`vitest` + Supertest).
-
-La documentación técnica para continuar el desarrollo está en [`documentacion.md`](documentacion.md) y el registro de fases en [`plan movil.md`](plan%20movil.md) y [`plan-expansion.md`](plan-expansion.md).
 
 ## Tecnologías
 
@@ -82,7 +80,7 @@ Los archivos `.env` y `.env.local` son locales y están excluidos de Git. No pub
 
 ### 2. Configurar la URL que usará la app
 
-Edita `mobile/.env.local`. El ejemplo trae `192.168.1.58`, que corresponde a una IP local de desarrollo y puede no ser la de tu computador. Usa la dirección según dónde abras la app:
+Edita `mobile/.env.local`. El ejemplo trae una IP local de desarrollo. Usa la dirección según dónde abras la app:
 
 | Destino de la app | Valor de `EXPO_PUBLIC_API_URL` |
 |---|---|
@@ -193,8 +191,6 @@ El volumen `pgdata` se conserva. No uses `docker compose down -v` si quieres man
 .
 ├── docker-compose.yml               # PostgreSQL y volumen pgdata
 ├── README.md                         # Instrucciones de instalación y uso
-├── documentacion.md                  # Guía técnica para agentes de IA
-├── plan movil.md                     # Plan y registro de las fases
 ├── docs/
 │   └── images/                       # Capturas de la aplicación
 ├── mobile/                           # App Expo + React Native
@@ -267,7 +263,7 @@ Los archivos `server/.env` y `mobile/.env.local` se crean localmente a partir de
 ### Seguridad y limitaciones de desarrollo
 
 - CORS está abierto para desarrollo local; no es una configuración de producción.
-- Tokens en web viven en `localStorage` (vulnerable a XSS); en nativos usan `expo-secure-store`.
+- Tokens en web viven en `localStorage`; en nativos usan `expo-secure-store`.
 - `express-rate-limit` usa memoria; no escala a múltiples réplicas.
 - El primer login requiere conexión; después, la sesión guardada funciona offline mientras los tokens sean válidos.
 
@@ -345,7 +341,7 @@ Los errores de validación responden con `400` y un objeto `errors` con los camp
 
 ### Autenticación
 
-La app separa los datos por usuario mediante registro e inicio de sesión. Las contraseñas se hashean con Argon2id en el servidor; el cliente guarda access token y refresh token de forma segura (`expo-secure-store` en nativo, `localStorage` en web).
+La app separa los datos por usuario mediante registro e inicio de sesión.
 
 ![Inicio de sesión](docs/images/iniciar-sesion.jpeg)
 
@@ -432,11 +428,3 @@ npm test
 | Prisma no alcanza PostgreSQL | El contenedor no está saludable o `DATABASE_URL` no coincide con Compose. | Revisa `docker compose ps`, el estado `healthy` y host, puerto, usuario, contraseña y base en ambos archivos de entorno. |
 | La app muestra “No se pudo conectar con el servidor” | API apagada, URL incorrecta o acceso bloqueado por red/firewall. | Comprueba `/health` desde el mismo destino y usa **Reintentar** en la app. |
 
-## Próximos pasos (fuera del alcance actual)
-
-La aplicación ya incluye autenticación de usuarios, fotos, ubicación, almacenamiento local y sincronización. Posibles mejoras futuras:
-
-- Descarga de fotos del servidor en segundo plano para visualización offline completa.
-- Sincronización periódica en segundo plano y manejo de conflictos más sofisticado.
-- Push notifications para recordatorios de tareas.
-- Soporte de etiquetas/categorías y búsqueda local.
