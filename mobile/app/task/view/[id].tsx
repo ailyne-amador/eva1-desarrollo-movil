@@ -11,6 +11,12 @@ import {
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../../src/components/ScreenHeader";
+import { TaskPhoto } from "../../../src/components/TaskPhoto";
+import { takePhoto as takePhotoFromCamera } from "../../../src/services/camera";
+import {
+  deletePhoto as deleteStoredPhoto,
+  savePhoto,
+} from "../../../src/services/photoStorage";
 import { getCityName, getCurrentCoords } from "../../../src/services/location";
 import { useTask } from "../../../src/hooks/useTasks";
 import { colors, displayFont } from "../../../src/theme";
@@ -24,6 +30,10 @@ export default function TaskDetailScreen() {
     task,
     updateTask,
     deleteTask,
+    uploadTaskPhoto,
+    deleteTaskPhoto,
+    isUploadingTaskPhoto,
+    isDeletingTaskPhoto,
     isLoading,
     isError,
     error,
@@ -32,6 +42,9 @@ export default function TaskDetailScreen() {
     isDeletingTask,
   } = useTask(id);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [photoDialogVisible, setPhotoDialogVisible] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const [editingField, setEditingField] = useState<"title" | "description" | null>(null);
   const [editingValue, setEditingValue] = useState("");
@@ -88,6 +101,45 @@ export default function TaskDetailScreen() {
       router.replace("/");
     } catch {
       setDeleteError(true);
+    }
+  }
+
+  async function addPhoto() {
+    setPhotoError("");
+    setIsTakingPhoto(true);
+    try {
+      const result = await takePhotoFromCamera();
+      if (result.status === "cancelled") return;
+      if (result.status === "denied") {
+        setPhotoError("Se necesita permiso de cámara para tomar una foto.");
+        return;
+      }
+      if (result.status === "unavailable") {
+        setPhotoError("No se pudo abrir la cámara.");
+        return;
+      }
+
+      const localPhoto = await savePhoto(id, result.uri);
+      await uploadTaskPhoto(id, localPhoto);
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo subir la foto. Inténtalo de nuevo.",
+      );
+    } finally {
+      setIsTakingPhoto(false);
+    }
+  }
+
+  async function confirmDeletePhoto() {
+    setPhotoError("");
+    try {
+      await deleteTaskPhoto(id);
+      await deleteStoredPhoto(id);
+      setPhotoDialogVisible(false);
+    } catch {
+      setPhotoError("No se pudo eliminar la foto.");
     }
   }
 
@@ -301,6 +353,38 @@ export default function TaskDetailScreen() {
                 </Text>
               )}
             </View>
+            <View style={styles.photoSection}>
+              {task.hasPhoto && (
+                <TaskPhoto
+                  taskId={task.id}
+                  accessibilityLabel={`Foto de ${task.title}`}
+                  style={styles.taskPhoto}
+                />
+              )}
+              <Button
+                mode={task.hasPhoto ? "text" : "outlined"}
+                textColor={task.hasPhoto ? colors.error : undefined}
+                onPress={() => {
+                  setPhotoError("");
+                  if (task.hasPhoto) setPhotoDialogVisible(true);
+                  else void addPhoto();
+                }}
+                loading={isTakingPhoto || isUploadingTaskPhoto}
+                disabled={
+                  editingField !== null ||
+                  isTakingPhoto ||
+                  isUploadingTaskPhoto ||
+                  isDeletingTaskPhoto
+                }
+              >
+                {task.hasPhoto ? "Eliminar foto" : "Tomar foto"}
+              </Button>
+              {photoError && (
+                <Text variant="bodySmall" style={styles.inlineError}>
+                  {photoError}
+                </Text>
+              )}
+            </View>
             {fieldError && (
               <Text variant="bodySmall" style={styles.inlineError}>
                 {fieldError}
@@ -354,6 +438,31 @@ export default function TaskDetailScreen() {
               textColor={colors.error}
               loading={isDeletingTask}
               disabled={isDeletingTask}
+            >
+              Eliminar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+        <Dialog
+          visible={photoDialogVisible}
+          onDismiss={() => setPhotoDialogVisible(false)}
+        >
+          <Dialog.Title>Eliminar foto</Dialog.Title>
+          <Dialog.Content>
+            <Text>¿Quieres eliminar la foto de esta tarea?</Text>
+            {photoError && (
+              <Text style={styles.deleteError}>{photoError}</Text>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setPhotoDialogVisible(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onPress={confirmDeletePhoto}
+              textColor={colors.error}
+              loading={isDeletingTaskPhoto}
+              disabled={isDeletingTaskPhoto}
             >
               Eliminar
             </Button>
@@ -478,6 +587,14 @@ const styles = StyleSheet.create({
   locationDetails: {
     alignItems: "flex-start",
     gap: 4,
+  },
+  photoSection: {
+    gap: 8,
+  },
+  taskPhoto: {
+    width: "100%",
+    height: 240,
+    borderRadius: 8,
   },
   locationText: {
     color: colors.muted,

@@ -1,7 +1,6 @@
 import { getAuthToken } from "./authStorage";
 import type { TaskFormValues } from "../schemas/taskSchema";
 import type { Task } from "../types/Task";
-
 type ApiTask = Omit<Task, "id"> & { id: number };
 type RequestOptions = { authenticated?: boolean };
 type UnauthorizedHandler = () => void | Promise<void>;
@@ -92,12 +91,13 @@ export async function getTasks(): Promise<Task[]> {
   return tasks.map(toTask);
 }
 
-export async function createTask(values: TaskFormValues): Promise<void> {
-  await request("/tasks", {
+export async function createTask(values: TaskFormValues): Promise<Task> {
+  const response = await request("/tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(values),
   });
+  return toTask((await response.json()) as ApiTask);
 }
 
 export async function updateTask(
@@ -113,4 +113,27 @@ export async function updateTask(
 
 export async function deleteTask(id: string): Promise<void> {
   await request(`/tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function getTaskPhotoUrl(id: string): string {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
+  return `${apiUrl}/tasks/${encodeURIComponent(id)}/photo`;
+}
+
+export async function uploadTaskPhoto(
+  id: string,
+  photo: string | Blob,
+): Promise<void> {
+  const file =
+    typeof photo === "string" ? await (await fetch(photo)).blob() : photo;
+  const body = new FormData();
+  body.append("photo", file, "photo.jpg");
+  await request(`/tasks/${encodeURIComponent(id)}/photo`, {
+    method: "POST",
+    body,
+  });
+}
+
+export async function deleteTaskPhoto(id: string): Promise<void> {
+  await request(`/tasks/${encodeURIComponent(id)}/photo`, { method: "DELETE" });
 }

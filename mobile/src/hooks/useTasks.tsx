@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createTask as createTaskRequest,
   deleteTask as deleteTaskRequest,
+  deleteTaskPhoto as deleteTaskPhotoRequest,
   getTask,
   getTasks,
   updateTask as updateTaskRequest,
+  uploadTaskPhoto as uploadTaskPhotoRequest,
 } from "../services/api";
 import type { TaskFormValues } from "../schemas/taskSchema";
 
@@ -27,6 +29,28 @@ function useUpdateTaskMutation() {
   });
 }
 
+function usePhotoMutations() {
+  const queryClient = useQueryClient();
+  const invalidateTasks = () =>
+    queryClient.invalidateQueries({ queryKey: tasksQueryKey });
+  const uploadMutation = useMutation({
+    mutationFn: ({ id, photo }: { id: string; photo: string | Blob }) =>
+      uploadTaskPhotoRequest(id, photo),
+    onSuccess: invalidateTasks,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteTaskPhotoRequest,
+    onSuccess: invalidateTasks,
+  });
+  return {
+    uploadTaskPhoto: (id: string, photo: string | Blob) =>
+      uploadMutation.mutateAsync({ id, photo }),
+    deleteTaskPhoto: deleteMutation.mutateAsync,
+    isUploadingTaskPhoto: uploadMutation.isPending,
+    isDeletingTaskPhoto: deleteMutation.isPending,
+  };
+}
+
 export function useTasks() {
   const queryClient = useQueryClient();
   const tasksQuery = useQuery({ queryKey: tasksQueryKey, queryFn: getTasks });
@@ -36,13 +60,14 @@ export function useTasks() {
   });
   const updateMutation = useUpdateTaskMutation();
   const deleteMutation = useDeleteTaskMutation();
-
+  const photoMutations = usePhotoMutations();
   return {
     tasks: tasksQuery.data ?? [],
     isLoading: tasksQuery.isPending,
     isError: tasksQuery.isError,
     refetchTasks: tasksQuery.refetch,
     addTask: addMutation.mutateAsync,
+    ...photoMutations,
     isAddingTask: addMutation.isPending,
     updateTask: (id: string, values: TaskFormValues) =>
       updateMutation.mutateAsync({ id, values }),
@@ -60,7 +85,7 @@ export function useTask(id: string) {
   });
   const deleteMutation = useDeleteTaskMutation();
   const updateMutation = useUpdateTaskMutation();
-
+  const photoMutations = usePhotoMutations();
   return {
     task: taskQuery.data,
     isLoading: taskQuery.isPending,
@@ -72,5 +97,6 @@ export function useTask(id: string) {
     isUpdatingTask: updateMutation.isPending,
     deleteTask: deleteMutation.mutateAsync,
     isDeletingTask: deleteMutation.isPending,
+    ...photoMutations,
   };
 }

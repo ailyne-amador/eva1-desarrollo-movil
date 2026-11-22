@@ -2,6 +2,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import {
+  Image,
   Platform,
   StyleSheet,
   Switch,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 import { Button, Text, TextInput as PaperTextInput } from "react-native-paper";
 import { taskSchema, type TaskFormValues } from "../schemas/taskSchema";
+import { takePhoto as takePhotoFromCamera } from "../services/camera";
 import { getCityName, getCurrentCoords } from "../services/location";
 import { colors } from "../theme";
 
@@ -87,7 +89,7 @@ export function TaskForm({
   onSuccess,
   isSaving = false,
 }: {
-  onSave: (values: TaskFormValues) => Promise<void> | void;
+  onSave: (values: TaskFormValues, photoUri?: string) => Promise<void> | void;
   onSuccess?: () => void;
   isSaving?: boolean;
 }) {
@@ -96,12 +98,27 @@ export function TaskForm({
     defaultValues: emptyValues,
   });
 
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [locationWarning, setLocationWarning] = useState("");
   const [includeLocation, setIncludeLocation] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState("");
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false);
+  async function capturePhoto() {
+    setPhotoError("");
+    setIsTakingPhoto(true);
+    const result = await takePhotoFromCamera();
+    setIsTakingPhoto(false);
+    if (result.status === "ok") setPhotoUri(result.uri);
+    else if (result.status === "denied") {
+      setPhotoError("Se necesita permiso de cámara para tomar una foto.");
+    } else if (result.status === "unavailable") {
+      setPhotoError("No se pudo abrir la cámara.");
+    }
+  }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const saveTask = handleSubmit(async (values) => {
-    setSaveError(false);
+    setSaveError("");
     setLocationWarning("");
     setIsSubmitting(true);
     try {
@@ -116,7 +133,10 @@ export function TaskForm({
           locationName = await getCityName(latitude, longitude);
         }
       }
-      await onSave({ ...values, latitude, longitude, locationName });
+      const taskValues = { ...values, latitude, longitude, locationName };
+      if (photoUri) await onSave(taskValues, photoUri);
+      else await onSave(taskValues);
+      setPhotoUri(null);
       reset(emptyValues);
       setIncludeLocation(false);
       if (includeLocation && latitude === null) {
@@ -130,8 +150,12 @@ export function TaskForm({
       } else {
         onSuccess?.();
       }
-    } catch {
-      setSaveError(true);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo conectar con el servidor.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -166,6 +190,38 @@ export function TaskForm({
           />
         )}
       />
+      <View style={styles.photoSection}>
+        <Button
+          mode="outlined"
+          onPress={() => void capturePhoto()}
+          loading={isTakingPhoto}
+          disabled={isSaving || isSubmitting || isTakingPhoto}
+        >
+          Tomar foto
+        </Button>
+        {photoUri && (
+          <>
+            <Image
+              accessible
+              accessibilityLabel="Vista previa de la foto"
+              source={{ uri: photoUri }}
+              resizeMode="cover"
+              style={styles.photoPreview}
+            />
+            <Button
+              onPress={() => setPhotoUri(null)}
+              disabled={isSaving || isSubmitting}
+            >
+              Quitar foto
+            </Button>
+          </>
+        )}
+        {photoError && (
+          <Text variant="bodySmall" style={styles.errorText}>
+            {photoError}
+          </Text>
+        )}
+      </View>
       <View style={styles.locationOption}>
         <View style={styles.locationOptionCopy}>
           <Text variant="bodyMedium">Añadir ubicación</Text>
@@ -186,7 +242,7 @@ export function TaskForm({
       </View>
       {saveError && (
         <Text variant="bodyMedium" style={styles.errorText}>
-          No se pudo conectar con el servidor.
+          {saveError}
         </Text>
       )}
       {locationWarning && (
@@ -236,6 +292,14 @@ const styles = StyleSheet.create({
   },
   locationWarning: {
     color: colors.muted,
+  },
+  photoSection: {
+    gap: 8,
+  },
+  photoPreview: {
+    width: "100%",
+    height: 220,
+    borderRadius: 8,
   },
   webLabel: {
     color: colors.muted,

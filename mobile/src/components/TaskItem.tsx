@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
+import { TaskPhoto } from "./TaskPhoto";
 import { Text } from "react-native-paper";
 import { colors } from "../theme";
 import type { Task } from "../types/Task";
@@ -12,6 +13,13 @@ type TaskItemProps = {
 export function TaskItem({ task, onView, onDelete }: TaskItemProps) {
   return (
     <View style={styles.row}>
+      {task.hasPhoto && (
+        <TaskPhoto
+          taskId={task.id}
+          accessibilityLabel={`Foto de ${task.title}`}
+          style={styles.thumbnail}
+        />
+      )}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Ver ${task.title}`}
@@ -50,6 +58,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     gap: 2,
+  },
+  thumbnail: {
+    width: 56,
+    height: 56,
+    borderRadius: 6,
   },
   pressed: {
     opacity: 0.6,
