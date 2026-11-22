@@ -3,7 +3,20 @@
 **Asignatura:** Desarrollo Móvil  
 **Estudiante:** Ailyne Amador
 
-Aplicación móvil para crear, listar, consultar, editar y eliminar tareas. La app está desarrollada con Expo y React Native; una API REST en Express guarda los datos en PostgreSQL.
+Aplicación móvil para crear, listar, consultar, editar y eliminar tareas. La app está desarrollada con Expo y React Native; una API REST en Express guarda los datos en PostgreSQL. Además del CRUD base, incluye autenticación de usuarios, fotos adjuntas, ubicación GPS, almacenamiento local SQLite y sincronización offline.
+
+## Resumen ejecutivo
+
+Este proyecto entrega una aplicación de lista de tareas con las siguientes capacidades:
+
+- **CRUD completo** de tareas con validación de formularios.
+- **Autenticación segura** con registro/login, Argon2id, JWT access/refresh tokens y rotación de refresh tokens.
+- **Fotos adjuntas** a cada tarea, guardadas localmente y sincronizadas con el servidor.
+- **Ubicación GPS** opcional que resuelve la ciudad mediante BigDataCloud.
+- **Modo offline** que persiste tareas en `expo-sqlite` y las sincroniza al recuperar la conexión.
+- **Pruebas automatizadas** en cliente (`jest-expo` + RNTL) y servidor (`vitest` + Supertest).
+
+La documentación técnica para continuar el desarrollo está en [`documentacion.md`](documentacion.md) y el registro de fases en [`plan movil.md`](plan%20movil.md) y [`plan-expansion.md`](plan-expansion.md).
 
 ## Tecnologías
 
@@ -197,13 +210,14 @@ El volumen `pgdata` se conserva. No uses `docker compose down -v` si quieres man
 │   │   ├── components/               # TaskForm, TaskItem, TaskPhoto, AuthScreen...
 │   │   ├── context/AuthContext.tsx   # Estado de sesión
 │   │   ├── db/                       # SQLite local y repositorio de tareas
-│   │   ├── hooks/useTasks.tsx        # Consultas y mutaciones locales
+│   │   ├── hooks/useTasks.tsx        # Consultas y mutaciones local-first
 │   │   ├── schemas/                  # Validación con Zod
-│   │   ├── services/                 # API, sync, cámara, ubicación, fotos
+│   │   ├── services/                 # API, sync, cámara, ubicación, fotos, uuid
+│   │   ├── __mocks__/                # Mocks de librerías de Expo para tests
 │   │   ├── theme.ts                  # Colores y tema de Paper
 │   │   └── types/Task.ts             # Tipo de tarea de la app
-│   ├── .env.example                   # Plantilla de URL de la API
 │   ├── app.json                       # Configuración Expo y permisos
+│   ├── .env.example                   # Plantilla de URL de la API
 │   ├── package.json
 │   └── package-lock.json
 └── server/                            # API Express + Prisma
@@ -228,29 +242,63 @@ El volumen `pgdata` se conserva. No uses `docker compose down -v` si quieres man
 
 Los archivos `server/.env` y `mobile/.env.local` se crean localmente a partir de sus ejemplos y no se versionan.
 
+## Decisiones de diseño
+
+### Local-first y sincronización
+
+- La app escribe siempre primero en SQLite local y muestra el cambio inmediatamente.
+- Cada tarea local tiene un UUID (`clientId`) que el servidor usa para evitar duplicados en sincronización.
+- Los estados `syncStatus` (`synced`, `pending_create`, `pending_update`, `pending_delete`) y `photoStatus` (`synced`, `pending_upload`, `pending_delete`) permiten reanudar la sincronización tras un cierre o fallo de red.
+- La cola de sincronización sube cambios de tareas primero y fotos después, porque una foto necesita el `serverId` de la tarea.
+- Al bajar, si la tarea local tiene cambios pendientes gana lo local; si está sincronizada, gana el servidor.
+
+### Autenticación
+
+- Argon2id hashea contraseñas en servidor; nunca viajan ni se almacenan en texto plano.
+- Access token corto (15 min) y refresh token rotatorio (7 d) reducen la ventana de riesgo si un token se expone.
+- El cliente intenta renovar el access token automáticamente ante un `401`; si falla, cierra sesión.
+
+### Fotos y ubicación
+
+- Las fotos se copian a un directorio persistente del teléfono con `expo-file-system`; esto evita perder la imagen si el URI temporal desaparece.
+- La ubicación solo se pide si el usuario activa el switch; si el permiso es denegado o el GPS falla, la tarea se guarda sin ciudad.
+- BigDataCloud resuelve la ciudad sin necesidad de clave de API.
+
+### Seguridad y limitaciones de desarrollo
+
+- CORS está abierto para desarrollo local; no es una configuración de producción.
+- Tokens en web viven en `localStorage` (vulnerable a XSS); en nativos usan `expo-secure-store`.
+- `express-rate-limit` usa memoria; no escala a múltiples réplicas.
+- El primer login requiere conexión; después, la sesión guardada funciona offline mientras los tokens sean válidos.
+
 ## Componentes y flujo de datos
 
 | Archivo o componente | Responsabilidad |
 |---|---|
-| `mobile/app/index.tsx` | Consulta y muestra tareas, estados de carga/error, estado vacío, acceso a crear y abrir detalle, y confirmación de eliminación. |
+| `mobile/app/index.tsx` | Consulta y muestra tareas desde SQLite, estados de carga/error, estado vacío, indicadores de sync, acceso a crear y abrir detalle, confirmación de eliminación y *pull to refresh*. |
 | `mobile/app/task/new.tsx` | Presenta el formulario para crear; al guardar con éxito vuelve a la lista. |
-| `mobile/app/task/view/[id].tsx` | Consulta `GET /tasks/:id`, muestra la tarjeta y permite editar título/descripción en línea o eliminar. |
-| `TaskItem` | Muestra título y descripción; al pulsarla abre el detalle. Mantiene el botón para eliminar junto a la fila. |
-| `TaskForm` | Formulario de alta; título obligatorio y descripción opcional, con validación React Hook Form + Zod. |
-| `useTasks` / `useTask` | TanStack Query para lista, detalle y mutaciones; invalida las consultas de tareas tras cada operación. |
-| `src/services/api.ts` | Centraliza las solicitudes HTTP, consulta tareas individuales y convierte el ID numérico a `string` en la app. |
+| `mobile/app/task/view/[id].tsx` | Consulta la tarea local, muestra la tarjeta y permite editar título/descripción en línea, gestionar foto o eliminar. |
+| `TaskItem` | Muestra título, descripción, miniatura de foto e indicador de sincronización; al pulsarla abre el detalle. |
+| `TaskForm` | Formulario de alta; título obligatorio y descripción opcional, con validación React Hook Form + Zod. Opciones de foto y ubicación. |
+| `useTasks` / `useTask` | TanStack Query para lista, detalle y mutaciones local-first; invalida las consultas de tareas tras cada operación local. |
+| `src/services/api.ts` | Centraliza las solicitudes HTTP, consulta tareas individuales, sube fotos y convierte el ID numérico a `string` en la app. |
 | `server/src/routes/tasks.ts` | Asocia las rutas HTTP con el controlador. |
 | `tasksController.ts` | Valida solicitudes, consulta Prisma y responde con los códigos HTTP. |
-| `server/prisma/schema.prisma` | Define `Task`: ID, título, descripción nullable y fechas `createdAt`/`updatedAt`. |
-| `server/prisma/migrations/20261121000000_optional_description/` | Permite guardar `description` como `NULL` sin perder los valores existentes. |
+| `mobile/src/db/database.ts` | Crea y migra la base SQLite local con `PRAGMA user_version`. |
+| `mobile/src/db/taskRepository.ts` | CRUD local filtrado por `user_id`, con estados `syncStatus` y `photoStatus`. |
+| `mobile/src/services/sync.ts` | Cola de sincronización: sube cambios/fotos y baja tareas del servidor. |
+| `server/prisma/schema.prisma` | Define `User`, `RefreshToken` y `Task` (título, descripción, ubicación, foto, `clientId`). |
+| `server/prisma/migrations/` | Historial SQL versionado para el esquema y sus ampliaciones. |
 
 ### Reglas de las tareas
 
 - `title`: obligatorio y con un máximo de 100 caracteres.
 - `description`: opcional y sin máximo. La API normaliza el valor ausente, nulo o en blanco a `NULL`; PostgreSQL permite `NULL`.
 - El formulario recorta los espacios de ambos campos. La API recorta la descripción, pero no el título; una solicitud directa con un título formado solo por espacios puede pasar la validación del servidor.
-- La base usa `SERIAL` para el ID y guarda las fechas `created_at` y `updated_at`.
-- La app no implementa autenticación ni almacenamiento local; la persistencia corresponde a PostgreSQL mediante la API.
+- La base usa `SERIAL` para el ID del servidor; el móvil genera un UUID local (`clientId`) para idempotencia offline.
+- Las fotos se guardan primero en el almacenamiento local del teléfono y luego se sincronizan con el servidor.
+- La ubicación solo se solicita si el usuario activa **Añadir ubicación**; si falla el GPS o la geocodificación, la tarea se guarda sin ciudad.
+- La app implementa autenticación con JWT, almacenamiento local SQLite y sincronización offline.
 
 ## API REST
 
@@ -295,36 +343,41 @@ Los errores de validación responden con `400` y un objeto `errors` con los camp
 
 ## Funcionalidades y capturas
 
+### Autenticación
+
+La app separa los datos por usuario mediante registro e inicio de sesión. Las contraseñas se hashean con Argon2id en el servidor; el cliente guarda access token y refresh token de forma segura (`expo-secure-store` en nativo, `localStorage` en web).
+
+![Inicio de sesión](docs/images/iniciar-sesion.jpeg)
+
+![Registro de cuenta](docs/images/crear-cuenta.jpeg)
+
 ### Lista vacía
 
 La pantalla informa cuando todavía no hay tareas y permite iniciar el alta.
 
-![Lista vacía de tareas](docs/images/inicio_sin_to_do.jpg)
-
-### Lista de tareas
-
-Cada fila muestra título y descripción; al pulsarla se abre su tarjeta. Toca el título o la descripción para sobrescribirlos.
-
-![Lista con tareas](docs/images/ver_to_do.jpg)
-![Detalle de tarea](docs/images/detalle-to-do.jpg)
+![Lista vacía de tareas](docs/images/lista-vacia.jpeg)
 
 ### Agregar tarea
 
-El título es obligatorio y la descripción opcional. Al guardar correctamente, la app vuelve a la lista y limpia el formulario.
+El título es obligatorio y la descripción opcional. Se puede activar **Añadir ubicación** para guardar coordenadas y ciudad, y **Tomar foto** para adjuntar una imagen. Al guardar correctamente, la app vuelve a la lista y limpia el formulario.
 
-![Formulario para agregar una tarea](docs/images/nueva_to_do.jpg)
+![Formulario para agregar una tarea](docs/images/form-crear-tarea.jpeg)
 
-### Editar desde la tarjeta
+![Formulario completo con ubicación y foto](docs/images/form-crear-tarea-completo.jpeg)
 
-Toca el título o la descripción, cambia el texto y pulsa **Guardar**. **Cancelar** descarta el cambio; no hay una pantalla separada de edición.
+### Detalle de tarea
 
-![Formulario para agregar una tarea](docs/images/editar-to-do.jpg)
+Al pulsar una fila se abre la tarjeta. Muestra el título, la descripción, la ciudad cuando existe y la foto adjunta. Desde aquí se puede editar en línea o eliminar la tarea.
 
-### Eliminar tarea
+![Tarjeta de tarea creada](docs/images/tarjeta-de-tarea-creada.jpeg)
 
-La app solicita confirmación antes de borrar la tarea.
+### Modo sin conexión y sincronización
 
-![Confirmación para eliminar una tarea](docs/images/eliminar_to_do.jpg)
+La app guarda primero en SQLite local. Cuando no hay red, las tareas muestran un indicador **Pendiente de subir**. Al volver la conexión (o al hacer *pull to refresh*), el motor de sincronización las envía al servidor y el indicador cambia.
+
+![Tarea creada sin red - pendiente](docs/images/tarea-sin-red-pendiente-de-subir.jpeg)
+
+![Tarea sincronizada tras recuperar conexión](docs/images/tarea-sin-red-sincronizada.jpeg)
 
 ## Verificación local
 
@@ -344,6 +397,15 @@ npm test
 ```
 
 `npm test` en `mobile/` ejecuta `jest-expo` con React Native Testing Library; en `server/` ejecuta `vitest` con Supertest.
+
+### Resultados de pruebas automatizadas
+
+Última ejecución verificada:
+
+- `mobile/`: **13 suites, 65 tests pasados** (componentes, hooks, servicios, repositorio SQLite y sincronización).
+- `server/`: **3 suites, 29 tests pasados** (autenticación, CRUD de tareas y fotos).
+- TypeScript: `npx tsc --noEmit` en `mobile/` y `npm run typecheck` en `server/` sin errores.
+- Lint: `npm run lint` en `mobile/` sin errores.
 
 ### Recorrido manual esperado
 
