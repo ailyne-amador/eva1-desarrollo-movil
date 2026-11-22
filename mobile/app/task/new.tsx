@@ -7,15 +7,17 @@ import { useTasks } from "../../src/hooks/useTasks";
 import { colors } from "../../src/theme";
 
 export default function NewTaskScreen() {
-  const { addTask, isAddingTask } = useTasks();
+  const { addTask, isAddingTask, isUploadingTaskPhoto } = useTasks();
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.screen}>
       <ScreenHeader title="Nueva tarea" />
       <TaskForm
-        isSaving={isAddingTask}
-        onSave={addTask}
+        isSaving={isAddingTask || isUploadingTaskPhoto}
+        onSave={async (values, photoUri) => {
+          await addTask(values, photoUri);
+        }}
         onSuccess={() => router.back()}
       />
     </SafeAreaView>

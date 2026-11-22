@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
-import { colors, displayFont } from "../theme";
+import { colors, displayFont, radius } from "../theme";
 
 // Encabezado de las pantallas de formulario: título serif + volver
 export function ScreenHeader({ title }: { title: string }) {
@@ -17,7 +17,7 @@ export function ScreenHeader({ title }: { title: string }) {
         hitSlop={8}
       >
         <Text variant="bodyLarge" style={styles.backText}>
-          ‹ Volver
+          ← Volver
         </Text>
       </Pressable>
       <Text style={styles.title}>{title}</Text>
@@ -35,9 +35,12 @@ const styles = StyleSheet.create({
   back: {
     alignSelf: "flex-start",
     paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginLeft: -12,
+    borderRadius: radius.md,
   },
   pressed: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   backText: {
     color: colors.muted,

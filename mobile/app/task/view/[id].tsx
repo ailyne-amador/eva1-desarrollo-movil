@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -11,9 +11,13 @@ import {
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../../src/components/ScreenHeader";
+import { TaskPhoto } from "../../../src/components/TaskPhoto";
+import { takePhoto as takePhotoFromCamera } from "../../../src/services/camera";
+import { getCityName, getCurrentCoords } from "../../../src/services/location";
 import { useTask } from "../../../src/hooks/useTasks";
-import { colors, displayFont } from "../../../src/theme";
+import { colors, displayFont, radius, shadow } from "../../../src/theme";
 import { taskSchema } from "../../../src/schemas/taskSchema";
+import type { TaskFormValues } from "../../../src/schemas/taskSchema";
 
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,6 +26,10 @@ export default function TaskDetailScreen() {
     task,
     updateTask,
     deleteTask,
+    uploadTaskPhoto,
+    deleteTaskPhoto,
+    isUploadingTaskPhoto,
+    isDeletingTaskPhoto,
     isLoading,
     isError,
     error,
@@ -30,11 +38,17 @@ export default function TaskDetailScreen() {
     isDeletingTask,
   } = useTask(id);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [photoDialogVisible, setPhotoDialogVisible] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
   const [editingField, setEditingField] = useState<"title" | "description" | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [fieldError, setFieldError] = useState<string>();
   const [saveError, setSaveError] = useState(false);
+  const [locationDialogVisible, setLocationDialogVisible] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const isNotFound = error instanceof Error && error.message === "Tarea no encontrada";
   function startEditing(field: "title" | "description", value: string) {
     setEditingField(field);
@@ -79,10 +93,100 @@ export default function TaskDetailScreen() {
 
   async function confirmDelete() {
     try {
-      await deleteTask(id);
+      await deleteTask();
       router.replace("/");
     } catch {
       setDeleteError(true);
+    }
+  }
+
+  async function addPhoto() {
+    setPhotoError("");
+    setIsTakingPhoto(true);
+    try {
+      const result = await takePhotoFromCamera();
+      if (result.status === "cancelled") return;
+      if (result.status === "denied") {
+        setPhotoError("Se necesita permiso de cámara para tomar una foto.");
+        return;
+      }
+      if (result.status === "unavailable") {
+        setPhotoError("No se pudo abrir la cámara.");
+        return;
+      }
+
+      await uploadTaskPhoto(result.uri);
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo subir la foto. Inténtalo de nuevo.",
+      );
+    } finally {
+      setIsTakingPhoto(false);
+    }
+  }
+
+  async function confirmDeletePhoto() {
+    setPhotoError("");
+    try {
+      await deleteTaskPhoto();
+      setPhotoDialogVisible(false);
+    } catch {
+      setPhotoError("No se pudo eliminar la foto.");
+    }
+  }
+
+  function closeLocationDialog() {
+    setLocationDialogVisible(false);
+    setLocationError("");
+  }
+
+  async function addLocation() {
+    if (!task) return;
+    setLocationError("");
+    setIsLoadingLocation(true);
+    try {
+      const result = await getCurrentCoords();
+      if (result.status === "denied") {
+        setLocationError("Se necesita permiso de ubicación.");
+        return;
+      }
+      if (result.status === "unavailable") {
+        setLocationError("No se pudo obtener la ubicación.");
+        return;
+      }
+      const locationName = await getCityName(result.latitude, result.longitude);
+      const values: TaskFormValues = {
+        title: task.title,
+        description: task.description ?? "",
+        latitude: result.latitude,
+        longitude: result.longitude,
+        locationName,
+      };
+      await updateTask(values);
+    } catch {
+      setLocationError("No se pudo guardar la ubicación.");
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }
+
+  async function confirmRemoveLocation() {
+    if (!task) return;
+    setLocationError("");
+    try {
+      const values: TaskFormValues = {
+        title: task.title,
+        description: task.description ?? "",
+        latitude: null,
+        longitude: null,
+        locationName: null,
+      };
+      await updateTask(values);
+      setLocationDialogVisible(false);
+    } catch {
+      setLocationError("No se pudo eliminar la ubicación.");
     }
   }
 
@@ -122,8 +226,9 @@ export default function TaskDetailScreen() {
                   }}
                   maxLength={100}
                   error={Boolean(fieldError)}
-                  mode="flat"
+                  mode="outlined"
                   style={styles.titleInput}
+                  outlineStyle={styles.inputOutline}
                 />
               ) : (
                 <Pressable
@@ -138,7 +243,7 @@ export default function TaskDetailScreen() {
               )}
               <Button
                 compact
-                mode="text"
+                mode="outlined"
                 textColor={colors.error}
                 onPress={() => {
                   setDeleteError(false);
@@ -164,8 +269,9 @@ export default function TaskDetailScreen() {
                 multiline
                 numberOfLines={4}
                 error={Boolean(fieldError)}
-                mode="flat"
+                mode="outlined"
                 style={styles.descriptionInput}
+                outlineStyle={styles.inputOutline}
               />
             ) : (
               <Pressable
@@ -191,6 +297,95 @@ export default function TaskDetailScreen() {
                 )}
               </Pressable>
             )}
+            <View style={styles.locationDetails}>
+              {task.latitude !== null && task.longitude !== null ? (
+                <>
+                  <Text variant="bodyMedium" style={styles.locationText}>
+                    Ubicación: {task.locationName?.trim() || "Ciudad no disponible"}
+                  </Text>
+                  <View style={styles.locationActions}>
+                    <Button
+                      mode="outlined"
+                      compact
+                      onPress={() =>
+                        void Linking.openURL(
+                          `https://www.google.com/maps/search/?api=1&query=${task.latitude},${task.longitude}`,
+                        )
+                      }
+                    >
+                      Ver en el mapa
+                    </Button>
+                    <Button
+                      compact
+                      mode="text"
+                      textColor={colors.error}
+                      onPress={() => {
+                        setLocationError("");
+                        setLocationDialogVisible(true);
+                      }}
+                      disabled={isLoadingLocation || editingField !== null}
+                    >
+                      Eliminar ubicación
+                    </Button>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text variant="bodyMedium" style={styles.locationText}>
+                    Sin ubicación
+                  </Text>
+                  <Button
+                    compact
+                    mode="outlined"
+                    onPress={() => void addLocation()}
+                    loading={isLoadingLocation}
+                    disabled={isLoadingLocation || editingField !== null}
+                  >
+                    Añadir ubicación
+                  </Button>
+                </>
+              )}
+              {locationError && (
+                <Text variant="bodySmall" style={styles.inlineError}>
+                  {locationError}
+                </Text>
+              )}
+            </View>
+            <View style={styles.photoSection}>
+              <Text variant="labelMedium" style={styles.sectionLabel}>
+                Foto
+              </Text>
+              {task.hasPhoto && (
+                <TaskPhoto
+                  task={task}
+                  accessibilityLabel={`Foto de ${task.title}`}
+                  style={styles.taskPhoto}
+                />
+              )}
+              <Button
+                mode={task.hasPhoto ? "text" : "outlined"}
+                textColor={task.hasPhoto ? colors.error : undefined}
+                onPress={() => {
+                  setPhotoError("");
+                  if (task.hasPhoto) setPhotoDialogVisible(true);
+                  else void addPhoto();
+                }}
+                loading={isTakingPhoto || isUploadingTaskPhoto}
+                disabled={
+                  editingField !== null ||
+                  isTakingPhoto ||
+                  isUploadingTaskPhoto ||
+                  isDeletingTaskPhoto
+                }
+              >
+                {task.hasPhoto ? "Eliminar foto" : "Tomar foto"}
+              </Button>
+              {photoError && (
+                <Text variant="bodySmall" style={styles.inlineError}>
+                  {photoError}
+                </Text>
+              )}
+            </View>
             {fieldError && (
               <Text variant="bodySmall" style={styles.inlineError}>
                 {fieldError}
@@ -208,10 +403,15 @@ export default function TaskDetailScreen() {
                   onPress={() => void saveField()}
                   loading={isUpdatingTask}
                   disabled={isUpdatingTask}
+                  buttonColor={colors.accent}
                 >
                   Guardar
                 </Button>
-                <Button onPress={cancelEditing} disabled={isUpdatingTask}>
+                <Button
+                  mode="outlined"
+                  onPress={cancelEditing}
+                  disabled={isUpdatingTask}
+                >
                   Cancelar
                 </Button>
               </View>
@@ -219,7 +419,7 @@ export default function TaskDetailScreen() {
           </View>
           {editingField === null && (
             <Text variant="bodySmall" style={styles.hint}>
-              Toca el título o la descripción para editar.
+              Toca el título o la descripción para editar. Usa los botones de ubicación para añadirla o quitarla.
             </Text>
           )}
         </ScrollView>
@@ -244,6 +444,51 @@ export default function TaskDetailScreen() {
               textColor={colors.error}
               loading={isDeletingTask}
               disabled={isDeletingTask}
+            >
+              Eliminar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+        <Dialog
+          visible={photoDialogVisible}
+          onDismiss={() => setPhotoDialogVisible(false)}
+        >
+          <Dialog.Title>Eliminar foto</Dialog.Title>
+          <Dialog.Content>
+            <Text>¿Quieres eliminar la foto de esta tarea?</Text>
+            {photoError && (
+              <Text style={styles.deleteError}>{photoError}</Text>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setPhotoDialogVisible(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onPress={confirmDeletePhoto}
+              textColor={colors.error}
+              loading={isDeletingTaskPhoto}
+              disabled={isDeletingTaskPhoto}
+            >
+              Eliminar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+        <Dialog visible={locationDialogVisible} onDismiss={closeLocationDialog}>
+          <Dialog.Title>Eliminar ubicación</Dialog.Title>
+          <Dialog.Content>
+            <Text>¿Quieres eliminar la ubicación de esta tarea?</Text>
+            {locationError && (
+              <Text style={styles.deleteError}>{locationError}</Text>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeLocationDialog}>Cancelar</Button>
+            <Button
+              onPress={() => void confirmRemoveLocation()}
+              textColor={colors.error}
+              loading={isLoadingLocation}
+              disabled={isLoadingLocation}
             >
               Eliminar
             </Button>
@@ -282,11 +527,11 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     gap: 18,
     padding: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.teal,
-    borderRadius: 8,
+    ...shadow.md,
   },
   cardHeader: {
     flexDirection: "row",
@@ -296,32 +541,39 @@ const styles = StyleSheet.create({
   titleField: {
     flex: 1,
     minWidth: 0,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   descriptionField: {
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   pressed: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   titleInput: {
     flex: 1,
-    backgroundColor: "transparent",
+    backgroundColor: colors.surface,
   },
   descriptionInput: {
-    backgroundColor: "transparent",
+    backgroundColor: colors.surface,
+  },
+  inputOutline: {
+    borderRadius: radius.md,
+    borderWidth: 1,
   },
   deleteAction: {
     alignSelf: "flex-start",
+    borderRadius: radius.md,
   },
   hint: {
     width: "100%",
     maxWidth: 640,
     color: colors.muted,
+    textAlign: "center",
   },
   editActions: {
-    alignItems: "flex-start",
-    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   inlineError: {
     color: colors.error,
@@ -344,6 +596,31 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontStyle: "italic",
     lineHeight: 26,
+  },
+  sectionLabel: {
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  locationDetails: {
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  locationActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  photoSection: {
+    gap: 8,
+  },
+  taskPhoto: {
+    width: "100%",
+    height: 240,
+    borderRadius: radius.md,
+  },
+  locationText: {
+    color: colors.ink,
   },
   deleteError: {
     marginTop: 8,

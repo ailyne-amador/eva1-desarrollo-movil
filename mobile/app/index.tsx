@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -11,11 +17,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskItem } from "../src/components/TaskItem";
 import { useTasks } from "../src/hooks/useTasks";
-import { colors, displayFont } from "../src/theme";
+import { useAuth } from "../src/context/AuthContext";
+import { useSyncStatus } from "../src/services/sync";
+import { colors, displayFont, radius, shadow } from "../src/theme";
 import type { Task } from "../src/types/Task";
 
 export default function Index() {
   const router = useRouter();
+  const { signOut } = useAuth();
 
   const {
     tasks,
@@ -25,6 +34,7 @@ export default function Index() {
     refetchTasks,
     isDeletingTask,
   } = useTasks();
+  const isSyncing = useSyncStatus();
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [deleteError, setDeleteError] = useState(false);
 
@@ -51,14 +61,25 @@ export default function Index() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Tareas</Text>
-        {!isError && !isLoading && (
-          <Text variant="bodyMedium" style={styles.count}>
-            {tasks.length === 0
-              ? "Nada pendiente"
-              : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
-          </Text>
-        )}
+        <View style={styles.heading}>
+          <Text style={styles.title}>Tareas</Text>
+          {!isError && !isLoading && (
+            <Text variant="bodyMedium" style={styles.count}>
+              {tasks.length === 0
+                ? "Nada pendiente"
+                : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
+              {isSyncing && " · Sincronizando..."}
+            </Text>
+          )}
+        </View>
+        <Button
+          mode="outlined"
+          compact
+          onPress={() => void signOut()}
+          style={styles.logoutButton}
+        >
+          Cerrar sesión
+        </Button>
       </View>
       {isError && (
         <View style={styles.serverError}>
@@ -86,6 +107,13 @@ export default function Index() {
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isSyncing}
+            onRefresh={() => void refetchTasks()}
+            tintColor={colors.accent}
+          />
+        }
         contentContainerStyle={[
           styles.list,
           tasks.length === 0 && styles.emptyList,
@@ -115,7 +143,7 @@ export default function Index() {
         onPress={() => router.push("/task/new")}
       >
         <Text variant="titleMedium" style={styles.fabText}>
-          + Nueva tarea
+          +  Nueva tarea
         </Text>
       </Pressable>
       <Portal>
@@ -155,9 +183,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 12,
+  },
+  heading: {
     gap: 2,
   },
   title: {
@@ -168,6 +201,9 @@ const styles = StyleSheet.create({
   },
   count: {
     color: colors.muted,
+  },
+  logoutButton: {
+    borderRadius: radius.md,
   },
   status: {
     alignItems: "center",
@@ -185,33 +221,36 @@ const styles = StyleSheet.create({
   list: {
     flexGrow: 1,
     paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 104,
+    gap: 10,
   },
   emptyList: {
     justifyContent: "center",
   },
   empty: {
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
   emptyText: {
     color: colors.ink,
   },
   emptyHint: {
     color: colors.muted,
+    textAlign: "center",
   },
   separator: {
-    height: 1,
-    backgroundColor: colors.line,
+    height: 8,
   },
   fab: {
     position: "absolute",
     right: 20,
     bottom: 24,
-    backgroundColor: colors.teal,
-    borderRadius: 28,
-    paddingHorizontal: 22,
-    paddingVertical: 16,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: radius.xl,
+    ...shadow.md,
   },
   fabPressed: {
     opacity: 0.85,
