@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -191,6 +191,30 @@ export default function TaskDetailScreen() {
                 )}
               </Pressable>
             )}
+            <View style={styles.locationDetails}>
+              {task.latitude !== null && task.longitude !== null ? (
+                <>
+                  <Text variant="bodyMedium" style={styles.locationText}>
+                    Ubicación: {task.locationName?.trim() || "Ciudad no disponible"}
+                  </Text>
+                  <Button
+                    compact
+                    mode="text"
+                    onPress={() =>
+                      void Linking.openURL(
+                        `https://www.google.com/maps/search/?api=1&query=${task.latitude},${task.longitude}`,
+                      )
+                    }
+                  >
+                    Ver en el mapa
+                  </Button>
+                </>
+              ) : (
+                <Text variant="bodyMedium" style={styles.locationText}>
+                  Sin ubicación
+                </Text>
+              )}
+            </View>
             {fieldError && (
               <Text variant="bodySmall" style={styles.inlineError}>
                 {fieldError}
@@ -344,6 +368,13 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontStyle: "italic",
     lineHeight: 26,
+  },
+  locationDetails: {
+    alignItems: "flex-start",
+    gap: 4,
+  },
+  locationText: {
+    color: colors.muted,
   },
   deleteError: {
     marginTop: 8,

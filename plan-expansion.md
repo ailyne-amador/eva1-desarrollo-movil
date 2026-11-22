@@ -21,6 +21,7 @@ Este archivo es una guía para un agente de IA que trabaja junto a la usuaria. *
 | Tomar foto | `expo-image-picker` (`launchCameraAsync`) | Funciona en Expo Go, abre la cámara del sistema y devuelve un `uri`; no hace falta construir una pantalla de cámara. `expo-camera` solo se justifica si se quiere una cámara propia dentro de la app. |
 | Guardar la foto en el teléfono | `expo-file-system` | El `uri` del picker queda en caché y el sistema puede borrarlo; hay que copiarlo a un directorio persistente. |
 | GPS | `expo-location` (`getCurrentPositionAsync`) | Estándar de Expo; permisos en tiempo de ejecución y plugin de configuración. |
+| Nombre de ciudad | [BigDataCloud Free Client-Side Reverse Geocode to City](https://www.bigdatacloud.com/docs/free-api/free-reverse-geocode-to-city-api) | Sin clave ni paquete nuevo. Consultar desde la app con coordenadas actuales obtenidas por `Location.getCurrentPositionAsync()`; su política prohíbe enviar coordenadas guardadas o de terceros. Persistir el nombre para no repetir la consulta al abrir el detalle. |
 | Almacenamiento local | `expo-sqlite` | Base relacional local, funciona en Expo Go y encaja con el modelo ya relacional (PostgreSQL). Alternativas descartadas: AsyncStorage (clave/valor, mal para consultas y cola de sincronización) y WatermelonDB / MMKV (requieren compilación nativa, no corren en Expo Go). |
 | Detectar conexión | `@react-native-community/netinfo` | Dispara la sincronización al volver la red. |
 | ID local de tareas | `expo-crypto` (`randomUUID`) | Una tarea creada offline necesita ID antes de existir en el servidor. |
@@ -67,6 +68,7 @@ model Task {
   description String?  @db.Text
   latitude    Float?
   longitude   Float?
+  locationName String? @map("location_name") @db.VarChar(255)
   photoPath   String?  @map("photo_path")
   clientId    String?  @map("client_id") @db.Uuid   // ID creado en el teléfono; hace idempotente el POST
   userId      Int?     @map("user_id")
@@ -89,14 +91,14 @@ model Task {
 | `POST` | `/auth/login` | No | `200` `{token, user}`; `401` con mensaje genérico `Credenciales inválidas` (no distinguir correo inexistente de contraseña errónea). Con límite de intentos. |
 | `GET` | `/auth/me` | Sí | `200` `{id,email}`; sirve para validar el token guardado. |
 | `*` | `/tasks...` | Sí | Todas filtradas por `userId` del token. Una tarea ajena responde `404` (no `403`, para no revelar que existe). |
-| `POST` | `/tasks` | Sí | Acepta además `latitude`, `longitude` (ambos o ninguno) y `clientId`. Si ya existe `(userId, clientId)`, devuelve la existente (reintentos sin duplicar). |
+| `POST` | `/tasks` | Sí | Acepta además `latitude`, `longitude` (ambos o ninguno), `locationName` nullable y `clientId`. La app guarda el nombre de ciudad devuelto por BigDataCloud si se pidió ubicación. Si ya existe `(userId, clientId)`, devuelve la existente. |
 | `POST` | `/tasks/:id/photo` | Sí | `multipart/form-data`, campo `photo`; `image/jpeg`, `image/png` o `image/webp`; máx. 5 MB (`413` si excede, `400` si el tipo no es válido). Reemplaza la foto anterior. |
 | `GET` | `/tasks/:id/photo` | Sí | Devuelve el archivo; `404` si no hay. |
 | `DELETE` | `/tasks/:id/photo` | Sí | Borra archivo y `photoPath`; `204`. |
 
-La respuesta de tarea agrega `latitude`, `longitude`, `clientId` y `hasPhoto: boolean` (no expone la ruta del archivo en disco). Las fotos se guardan bajo `server/uploads/<userId>/` con nombre generado por el servidor (UUID); **nunca** usar el nombre que envía el cliente. Agregar `server/uploads/` al `.gitignore`.
+La respuesta de tarea agrega `latitude`, `longitude`, `locationName`, `clientId` y `hasPhoto: boolean` (no expone la ruta del archivo en disco). La app muestra `locationName`, no las coordenadas; el enlace al mapa usa internamente las coordenadas.
 
-Validación de reglas nuevas (Zod, en ambos lados): `latitude` ∈ [−90, 90], `longitude` ∈ [−180, 180]; contraseña de 8 a 128 caracteres (el máximo evita enviar textos enormes al hash); correo normalizado a minúsculas.
+Validación de reglas nuevas (Zod, en ambos lados): `latitude` ∈ [−90, 90], `longitude` ∈ [−180, 180], `locationName` opcional, máximo 255 caracteres; contraseña de 8 a 128 caracteres.
 
 Variables nuevas en `server/.env.example`: `JWT_SECRET` (el servidor debe **negarse a arrancar** si falta o tiene menos de 32 caracteres) y `JWT_EXPIRES_IN` (por ejemplo `7d`).
 
@@ -113,6 +115,7 @@ type Task = {
   description: string | null;
   latitude: number | null;
   longitude: number | null;
+  locationName: string | null; // ciudad devuelta por BigDataCloud al crear
   photoUri: string | null; // archivo en el almacenamiento persistente del teléfono
   photoStatus: PhotoStatus;
   syncStatus: SyncStatus;
@@ -201,23 +204,24 @@ Primero las herramientas, para que cada fase siguiente nazca con sus pruebas.
 
 ## Fase 5 — GPS al crear la tarea
 
-- [ ] Plugin en `app.json`: `expo-location` con mensaje de permiso en español (`locationWhenInUsePermission`).
-- [ ] `src/services/location.ts` → `getCurrentCoords()` devuelve un resultado tipado, sin lanzar excepciones:
+- [x] Plugin en `app.json`: `expo-location` con mensaje de permiso en español (`locationWhenInUsePermission`).
+- [x] `src/services/location.ts` → `getCurrentCoords()` devuelve un resultado tipado, sin lanzar excepciones:
   - `{ status: 'ok', latitude, longitude }`
   - `{ status: 'denied' }` (permiso rechazado)
   - `{ status: 'unavailable' }` (GPS apagado, error o **tiempo de espera agotado**; usar un límite de unos segundos con `Promise.race` para que crear una tarea nunca se quede colgado)
-- [ ] Integrar en el alta: al guardar, pedir permiso (primera vez) y obtener coordenadas. **Si no se obtienen, la tarea se crea igual** con `latitude`/`longitude` en `null`. Mostrar un aviso discreto cuando no se pudo registrar la ubicación.
-- [ ] Mostrar la ubicación en la tarjeta de detalle ("Ubicación: lat, lon") con un enlace "Ver en el mapa" usando `Linking.openURL` (URL de mapas con `lat,lon`; no requiere dependencias nuevas). Si no hay ubicación: "Sin ubicación".
+- [x] En el alta, switch **Añadir ubicación** apagado por defecto; apagado no pide permiso ni llama a la API externa. Activado pide permiso y la tarea se guarda aunque el GPS o la geocodificación fallen.
+- [x] Tras `Location.getCurrentPositionAsync()`, consultar desde la app el endpoint gratuito `reverse-geocode-client` de BigDataCloud con `localityLanguage=es`; guardar `city` o `locality` como `locationName`. La política exige coordenadas actuales del dispositivo, no coordenadas almacenadas.
+- [x] Persistir `locationName` nullable en Prisma/API con la migración `20261122012651_add_task_location_name`. El detalle muestra solo el nombre de ciudad (`Ciudad no disponible` si falta) y conserva el enlace al mapa con coordenadas.
 
-**Pruebas (Jest)** — mockeando `expo-location`:
-- [ ] Permiso concedido → devuelve las coordenadas del mock.
-- [ ] Permiso denegado → `denied`, y no se llama a `getCurrentPositionAsync`.
-- [ ] Error del GPS → `unavailable`.
-- [ ] Tiempo de espera agotado → `unavailable` (usar fake timers).
-- [ ] Alta con ubicación disponible → `addTask` recibe latitud y longitud.
-- [ ] Alta con permiso denegado → `addTask` se llama igual con coordenadas `null`.
+**Pruebas (Jest + Vitest)**:
+- [x] Permiso concedido devuelve coordenadas; permiso denegado, error y timeout devuelven el estado esperado.
+- [x] Switch apagado crea sin pedir ubicación ni consultar BigDataCloud.
+- [x] Switch activado guarda coordenadas y nombre de ciudad; si el permiso o la API falla, la tarea se crea sin nombre y muestra aviso.
+- [x] BigDataCloud prefiere `city`, usa `locality` de respaldo y un error HTTP no bloquea la creación.
+- [x] La API persiste y devuelve `locationName`.
+- [x] El detalle muestra la ciudad o `Ciudad no disponible`, nunca coordenadas en pantalla.
 
-**Checkpoint:** en un teléfono físico, crear una tarea con y sin permiso y comprobar los datos guardados.
+**Checkpoint completado:** Prueba en teléfono con la opción apagada, permiso concedido y denegado; ciudad confirmada.
 
 ## Fase 6 — Fotos
 

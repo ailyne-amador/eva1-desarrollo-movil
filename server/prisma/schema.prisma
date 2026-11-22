@@ -23,6 +23,7 @@ model Task {
   description String?  @db.Text
   latitude    Float?
   longitude   Float?
+  locationName String?  @map("location_name") @db.VarChar(255)
   photoPath   String?  @map("photo_path")
   clientId    String?  @map("client_id") @db.Uuid
   userId      Int?     @map("user_id")

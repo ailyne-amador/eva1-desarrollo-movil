@@ -10,6 +10,7 @@ test("muestra el título de la tarea", async () => {
         description: null,
         latitude: null,
         longitude: null,
+        locationName: null,
         clientId: null,
         hasPhoto: false,
       }}

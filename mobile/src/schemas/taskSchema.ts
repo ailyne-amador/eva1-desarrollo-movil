@@ -10,6 +10,7 @@ export const taskSchema = z
     description: z.string().trim().optional().default(""),
     latitude: z.number().min(-90).max(90).nullable().optional(),
     longitude: z.number().min(-180).max(180).nullable().optional(),
+    locationName: z.string().trim().max(255).nullable().optional(),
     clientId: z.string().uuid().nullable().optional(),
   })
   .refine(

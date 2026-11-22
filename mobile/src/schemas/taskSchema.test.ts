@@ -2,10 +2,15 @@ import { taskSchema } from "./taskSchema";
 
 const task = { title: "Tarea", description: "" };
 
-test("acepta tareas sin ubicación o con coordenadas válidas", () => {
+test("acepta tareas sin ubicación o con coordenadas y ciudad válidas", () => {
   expect(taskSchema.safeParse(task).success).toBe(true);
   expect(
-    taskSchema.safeParse({ ...task, latitude: 90, longitude: 180 }).success,
+    taskSchema.safeParse({
+      ...task,
+      latitude: 90,
+      longitude: 180,
+      locationName: "Bogotá",
+    }).success,
   ).toBe(true);
 });
 

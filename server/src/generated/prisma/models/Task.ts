@@ -46,6 +46,7 @@ export type TaskMinAggregateOutputType = {
   description: string | null
   latitude: number | null
   longitude: number | null
+  locationName: string | null
   photoPath: string | null
   clientId: string | null
   userId: number | null
@@ -59,6 +60,7 @@ export type TaskMaxAggregateOutputType = {
   description: string | null
   latitude: number | null
   longitude: number | null
+  locationName: string | null
   photoPath: string | null
   clientId: string | null
   userId: number | null
@@ -72,6 +74,7 @@ export type TaskCountAggregateOutputType = {
   description: number
   latitude: number
   longitude: number
+  locationName: number
   photoPath: number
   clientId: number
   userId: number
@@ -101,6 +104,7 @@ export type TaskMinAggregateInputType = {
   description?: true
   latitude?: true
   longitude?: true
+  locationName?: true
   photoPath?: true
   clientId?: true
   userId?: true
@@ -114,6 +118,7 @@ export type TaskMaxAggregateInputType = {
   description?: true
   latitude?: true
   longitude?: true
+  locationName?: true
   photoPath?: true
   clientId?: true
   userId?: true
@@ -127,6 +132,7 @@ export type TaskCountAggregateInputType = {
   description?: true
   latitude?: true
   longitude?: true
+  locationName?: true
   photoPath?: true
   clientId?: true
   userId?: true
@@ -227,6 +233,7 @@ export type TaskGroupByOutputType = {
   description: string | null
   latitude: number | null
   longitude: number | null
+  locationName: string | null
   photoPath: string | null
   clientId: string | null
   userId: number | null
@@ -263,6 +270,7 @@ export type TaskWhereInput = {
   description?: Prisma.StringNullableFilter<"Task"> | string | null
   latitude?: Prisma.FloatNullableFilter<"Task"> | number | null
   longitude?: Prisma.FloatNullableFilter<"Task"> | number | null
+  locationName?: Prisma.StringNullableFilter<"Task"> | string | null
   photoPath?: Prisma.StringNullableFilter<"Task"> | string | null
   clientId?: Prisma.UuidNullableFilter<"Task"> | string | null
   userId?: Prisma.IntNullableFilter<"Task"> | number | null
@@ -277,6 +285,7 @@ export type TaskOrderByWithRelationInput = {
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   latitude?: Prisma.SortOrderInput | Prisma.SortOrder
   longitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationName?: Prisma.SortOrderInput | Prisma.SortOrder
   photoPath?: Prisma.SortOrderInput | Prisma.SortOrder
   clientId?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -295,6 +304,7 @@ export type TaskWhereUniqueInput = Prisma.AtLeast<{
   description?: Prisma.StringNullableFilter<"Task"> | string | null
   latitude?: Prisma.FloatNullableFilter<"Task"> | number | null
   longitude?: Prisma.FloatNullableFilter<"Task"> | number | null
+  locationName?: Prisma.StringNullableFilter<"Task"> | string | null
   photoPath?: Prisma.StringNullableFilter<"Task"> | string | null
   clientId?: Prisma.UuidNullableFilter<"Task"> | string | null
   userId?: Prisma.IntNullableFilter<"Task"> | number | null
@@ -309,6 +319,7 @@ export type TaskOrderByWithAggregationInput = {
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   latitude?: Prisma.SortOrderInput | Prisma.SortOrder
   longitude?: Prisma.SortOrderInput | Prisma.SortOrder
+  locationName?: Prisma.SortOrderInput | Prisma.SortOrder
   photoPath?: Prisma.SortOrderInput | Prisma.SortOrder
   clientId?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -330,6 +341,7 @@ export type TaskScalarWhereWithAggregatesInput = {
   description?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
   latitude?: Prisma.FloatNullableWithAggregatesFilter<"Task"> | number | null
   longitude?: Prisma.FloatNullableWithAggregatesFilter<"Task"> | number | null
+  locationName?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
   photoPath?: Prisma.StringNullableWithAggregatesFilter<"Task"> | string | null
   clientId?: Prisma.UuidNullableWithAggregatesFilter<"Task"> | string | null
   userId?: Prisma.IntNullableWithAggregatesFilter<"Task"> | number | null
@@ -342,6 +354,7 @@ export type TaskCreateInput = {
   description?: string | null
   latitude?: number | null
   longitude?: number | null
+  locationName?: string | null
   photoPath?: string | null
   clientId?: string | null
   createdAt?: Date | string
@@ -355,6 +368,7 @@ export type TaskUncheckedCreateInput = {
   description?: string | null
   latitude?: number | null
   longitude?: number | null
+  locationName?: string | null
   photoPath?: string | null
   clientId?: string | null
   userId?: number | null
@@ -367,6 +381,7 @@ export type TaskUpdateInput = {
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  locationName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   photoPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -380,6 +395,7 @@ export type TaskUncheckedUpdateInput = {
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  locationName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   photoPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -393,6 +409,7 @@ export type TaskCreateManyInput = {
   description?: string | null
   latitude?: number | null
   longitude?: number | null
+  locationName?: string | null
   photoPath?: string | null
   clientId?: string | null
   userId?: number | null
@@ -405,6 +422,7 @@ export type TaskUpdateManyMutationInput = {
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  locationName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   photoPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -417,6 +435,7 @@ export type TaskUncheckedUpdateManyInput = {
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  locationName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   photoPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -445,6 +464,7 @@ export type TaskCountOrderByAggregateInput = {
   description?: Prisma.SortOrder
   latitude?: Prisma.SortOrder
   longitude?: Prisma.SortOrder
+  locationName?: Prisma.SortOrder
   photoPath?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -465,6 +485,7 @@ export type TaskMaxOrderByAggregateInput = {
   description?: Prisma.SortOrder
   latitude?: Prisma.SortOrder
   longitude?: Prisma.SortOrder
+  locationName?: Prisma.SortOrder
   photoPath?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -478,6 +499,7 @@ export type TaskMinOrderByAggregateInput = {
   description?: Prisma.SortOrder
   latitude?: Prisma.SortOrder
   longitude?: Prisma.SortOrder
+  locationName?: Prisma.SortOrder
   photoPath?: Prisma.SortOrder
   clientId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -559,6 +581,7 @@ export type TaskCreateWithoutUserInput = {
   description?: string | null
   latitude?: number | null
   longitude?: number | null
+  locationName?: string | null
   photoPath?: string | null
   clientId?: string | null
   createdAt?: Date | string
@@ -571,6 +594,7 @@ export type TaskUncheckedCreateWithoutUserInput = {
   description?: string | null
   latitude?: number | null
   longitude?: number | null
+  locationName?: string | null
   photoPath?: string | null
   clientId?: string | null
   createdAt?: Date | string
@@ -612,6 +636,7 @@ export type TaskScalarWhereInput = {
   description?: Prisma.StringNullableFilter<"Task"> | string | null
   latitude?: Prisma.FloatNullableFilter<"Task"> | number | null
   longitude?: Prisma.FloatNullableFilter<"Task"> | number | null
+  locationName?: Prisma.StringNullableFilter<"Task"> | string | null
   photoPath?: Prisma.StringNullableFilter<"Task"> | string | null
   clientId?: Prisma.UuidNullableFilter<"Task"> | string | null
   userId?: Prisma.IntNullableFilter<"Task"> | number | null
@@ -625,6 +650,7 @@ export type TaskCreateManyUserInput = {
   description?: string | null
   latitude?: number | null
   longitude?: number | null
+  locationName?: string | null
   photoPath?: string | null
   clientId?: string | null
   createdAt?: Date | string
@@ -636,6 +662,7 @@ export type TaskUpdateWithoutUserInput = {
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  locationName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   photoPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -648,6 +675,7 @@ export type TaskUncheckedUpdateWithoutUserInput = {
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  locationName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   photoPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -660,6 +688,7 @@ export type TaskUncheckedUpdateManyWithoutUserInput = {
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  locationName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   photoPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -674,6 +703,7 @@ export type TaskSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   description?: boolean
   latitude?: boolean
   longitude?: boolean
+  locationName?: boolean
   photoPath?: boolean
   clientId?: boolean
   userId?: boolean
@@ -688,6 +718,7 @@ export type TaskSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   description?: boolean
   latitude?: boolean
   longitude?: boolean
+  locationName?: boolean
   photoPath?: boolean
   clientId?: boolean
   userId?: boolean
@@ -702,6 +733,7 @@ export type TaskSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   description?: boolean
   latitude?: boolean
   longitude?: boolean
+  locationName?: boolean
   photoPath?: boolean
   clientId?: boolean
   userId?: boolean
@@ -716,6 +748,7 @@ export type TaskSelectScalar = {
   description?: boolean
   latitude?: boolean
   longitude?: boolean
+  locationName?: boolean
   photoPath?: boolean
   clientId?: boolean
   userId?: boolean
@@ -723,7 +756,7 @@ export type TaskSelectScalar = {
   updatedAt?: boolean
 }
 
-export type TaskOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "latitude" | "longitude" | "photoPath" | "clientId" | "userId" | "createdAt" | "updatedAt", ExtArgs["result"]["task"]>
+export type TaskOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "latitude" | "longitude" | "locationName" | "photoPath" | "clientId" | "userId" | "createdAt" | "updatedAt", ExtArgs["result"]["task"]>
 export type TaskInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.Task$userArgs<ExtArgs>
 }
@@ -745,6 +778,7 @@ export type $TaskPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     description: string | null
     latitude: number | null
     longitude: number | null
+    locationName: string | null
     photoPath: string | null
     clientId: string | null
     userId: number | null
@@ -1179,6 +1213,7 @@ export interface TaskFieldRefs {
   readonly description: Prisma.FieldRef<"Task", 'String'>
   readonly latitude: Prisma.FieldRef<"Task", 'Float'>
   readonly longitude: Prisma.FieldRef<"Task", 'Float'>
+  readonly locationName: Prisma.FieldRef<"Task", 'String'>
   readonly photoPath: Prisma.FieldRef<"Task", 'String'>
   readonly clientId: Prisma.FieldRef<"Task", 'String'>
   readonly userId: Prisma.FieldRef<"Task", 'Int'>

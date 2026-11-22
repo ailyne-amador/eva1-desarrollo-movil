@@ -26,7 +26,13 @@
       "expo-router",
       "expo-status-bar",
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permite que To-Do List acceda a tu ubicación mientras usas la app para añadirla a tus tareas."
+        }
+      ],
     ],
     "experiments": {
       "typedRoutes": true

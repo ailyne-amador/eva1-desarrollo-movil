@@ -4,11 +4,13 @@ import { Controller, useForm } from "react-hook-form";
 import {
   Platform,
   StyleSheet,
+  Switch,
   TextInput as NativeTextInput,
   View,
 } from "react-native";
 import { Button, Text, TextInput as PaperTextInput } from "react-native-paper";
 import { taskSchema, type TaskFormValues } from "../schemas/taskSchema";
+import { getCityName, getCurrentCoords } from "../services/location";
 import { colors } from "../theme";
 
 type TaskFieldProps = {
@@ -95,16 +97,44 @@ export function TaskForm({
   });
 
   const [saveError, setSaveError] = useState(false);
+  const [locationWarning, setLocationWarning] = useState("");
+  const [includeLocation, setIncludeLocation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const saveTask = handleSubmit(async (values) => {
     setSaveError(false);
+    setLocationWarning("");
+    setIsSubmitting(true);
     try {
-      await onSave(values);
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      let locationName: string | null = null;
+      if (includeLocation) {
+        const location = await getCurrentCoords();
+        if (location.status === "ok") {
+          latitude = location.latitude;
+          longitude = location.longitude;
+          locationName = await getCityName(latitude, longitude);
+        }
+      }
+      await onSave({ ...values, latitude, longitude, locationName });
+      reset(emptyValues);
+      setIncludeLocation(false);
+      if (includeLocation && latitude === null) {
+        setLocationWarning(
+          "Tarea guardada, pero no se pudo registrar la ubicación.",
+        );
+      } else if (includeLocation && locationName === null) {
+        setLocationWarning(
+          "Tarea guardada, pero no se pudo determinar la ciudad.",
+        );
+      } else {
+        onSuccess?.();
+      }
     } catch {
       setSaveError(true);
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-    reset(emptyValues);
-    onSuccess?.();
   });
 
   return (
@@ -136,16 +166,39 @@ export function TaskForm({
           />
         )}
       />
+      <View style={styles.locationOption}>
+        <View style={styles.locationOptionCopy}>
+          <Text variant="bodyMedium">Añadir ubicación</Text>
+          <Text variant="bodySmall" style={styles.locationHelp}>
+            La ubicación actual se comparte con BigDataCloud para obtener la ciudad.
+          </Text>
+        </View>
+        <Switch
+          accessibilityLabel="Añadir ubicación"
+          accessibilityHint="Comparte tu ubicación actual con BigDataCloud al guardar."
+          value={includeLocation}
+          onValueChange={(value) => {
+            setIncludeLocation(value);
+            setLocationWarning("");
+          }}
+          disabled={isSaving || isSubmitting}
+        />
+      </View>
       {saveError && (
         <Text variant="bodyMedium" style={styles.errorText}>
           No se pudo conectar con el servidor.
         </Text>
       )}
+      {locationWarning && (
+        <Text variant="bodySmall" style={styles.locationWarning}>
+          {locationWarning}
+        </Text>
+      )}
       <Button
         mode="contained"
         onPress={saveTask}
-        loading={isSaving}
-        disabled={isSaving}
+        loading={isSaving || isSubmitting}
+        disabled={isSaving || isSubmitting}
         style={styles.save}
         contentStyle={styles.saveContent}
       >
@@ -166,8 +219,23 @@ const styles = StyleSheet.create({
   flatInput: {
     backgroundColor: "transparent",
   },
+  locationOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  locationOptionCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  locationHelp: {
+    color: colors.muted,
+  },
   errorText: {
     color: colors.error,
+  },
+  locationWarning: {
+    color: colors.muted,
   },
   webLabel: {
     color: colors.muted,

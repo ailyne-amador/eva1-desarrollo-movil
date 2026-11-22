@@ -4,6 +4,7 @@ export interface Task {
   description: string | null;
   latitude: number | null;
   longitude: number | null;
+  locationName: string | null;
   clientId: string | null;
   hasPhoto: boolean;
   createdAt?: string;

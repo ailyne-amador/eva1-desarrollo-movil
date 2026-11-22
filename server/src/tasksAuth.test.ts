@@ -65,8 +65,9 @@ describe("tasks authentication", () => {
       id: 1,
       title: "Tarea",
       description: null,
-      latitude: null,
-      longitude: null,
+      latitude: 4.5,
+      longitude: -74.1,
+      locationName: "Bogotá",
       photoPath: null,
       clientId: null,
       userId: 7,
@@ -75,14 +76,20 @@ describe("tasks authentication", () => {
     const response = await request(app)
       .post("/tasks")
       .set("Authorization", authHeader(7))
-      .send({ title: "Tarea", latitude: null, longitude: null });
+      .send({
+        title: "Tarea",
+        latitude: 4.5,
+        longitude: -74.1,
+        locationName: "Bogotá",
+      });
 
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({
       id: 1,
       title: "Tarea",
-      latitude: null,
-      longitude: null,
+      latitude: 4.5,
+      longitude: -74.1,
+      locationName: "Bogotá",
       clientId: null,
       hasPhoto: false,
     });
@@ -91,8 +98,9 @@ describe("tasks authentication", () => {
       data: expect.objectContaining({
         title: "Tarea",
         description: null,
-        latitude: null,
-        longitude: null,
+        latitude: 4.5,
+        longitude: -74.1,
+        locationName: "Bogotá",
         userId: 7,
       }),
     });
@@ -127,6 +135,7 @@ describe("tasks authentication", () => {
       description: null,
       latitude: 10,
       longitude: 20,
+      locationName: "Bogotá",
       photoPath: "uploads/7/photo.jpg",
       clientId,
       userId: 7,
@@ -136,12 +145,20 @@ describe("tasks authentication", () => {
       request(app)
         .post("/tasks")
         .set("Authorization", authHeader(7))
-        .send({ title, clientId, latitude: 10, longitude: 20 });
+        .send({
+          title,
+          clientId,
+          latitude: 10,
+          longitude: 20,
+          locationName: "Bogotá",
+        });
     const first = await create("Tarea inicial");
     const duplicate = await create("Reintento");
 
     expect(first.status).toBe(201);
     expect(duplicate.status).toBe(201);
+    expect(first.body.locationName).toBe("Bogotá");
+    expect(duplicate.body.locationName).toBe("Bogotá");
     expect(prismaMock.task.upsert).toHaveBeenCalledTimes(2);
     expect(prismaMock.task.upsert).toHaveBeenNthCalledWith(
       1,
@@ -153,6 +170,7 @@ describe("tasks authentication", () => {
           latitude: 10,
           longitude: 20,
           clientId,
+          locationName: "Bogotá",
           userId: 7,
         }),
       }),
