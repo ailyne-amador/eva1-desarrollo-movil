@@ -20,7 +20,8 @@ Si encuentras contradicciones, sigue este orden:
 - Conversación y textos visibles de la app en español; identificadores de código en inglés; comentarios breves en español.
 - Mantener Expo + React Native + TypeScript, Expo Router, React Native Paper, React Hook Form, Zod, TanStack Query, Express, Prisma y PostgreSQL. No cambiar el stack ni añadir dependencias sin autorización de la usuaria.
 - El alcance original es el CRUD de tareas. Autenticación, almacenamiento local/offline y consumo de APIs externas son extensiones futuras, no requisitos actuales.
-- Reutilizar la estructura y los patrones existentes. La app y la API son paquetes separados; no hay `package.json` en la raíz ni workspace configurado.
+. Reutilizar la estructura y los patrones existentes. La app y la API son paquetes separados; no hay `package.json` en la raíz ni workspace configurado.
+- Autenticación y refresh tokens ya están implementados; offline y sincronización son las extensiones futuras pendientes.
 - Leer los archivos afectados antes de editar. Si cambia un contrato de datos, seguir el flujo completo móvil → API → base de datos y actualizar todas las capas necesarias.
 - No leer, copiar ni divulgar valores de `mobile/.env.local` o `server/.env`; usar solo los `.env.example` como plantilla. Nunca incluir secretos en código, documentación o Git.
 - No ejecutar operaciones destructivas sin autorización explícita: por ejemplo `docker compose down -v`, borrar volúmenes o migraciones, `git reset --hard` o hacer force-push. El volumen `pgdata` conserva datos.
@@ -38,8 +39,9 @@ Aplicación móvil/web sencilla para crear, consultar, editar y eliminar tareas.
 | API | Express 5 + TypeScript; rutas `/health` y CRUD `/tasks`. |
 | Persistencia | PostgreSQL 16 en Docker Compose; Prisma 7 con `@prisma/adapter-pg`. |
 | Funcionalidad | CRUD conectado y persistente; la lista se actualiza al completar mutaciones. |
-| Pruebas | El plan registra verificación manual. No hay scripts de test configurados; Jest, React Native Testing Library y Supertest no están instalados como suite del proyecto. |
-| Progreso | El registro de `plan movil.md` marca las fases 0–8 completadas. Las pruebas automatizadas opcionales quedaron sin implementar. |
+| Autenticación | Registro/login con Argon2, JWT access token (15m) y refresh token rotatorio (7d). Todas las rutas de tareas requieren Bearer token. |
+| Pruebas | `jest-expo` + React Native Testing Library en `mobile/`; `vitest` + `supertest` en `server/`. Suites pasando. |
+| Progreso | `plan movil.md` marca el CRUD base (fases 0–8) completado. `plan-expansion.md` registra fases 0–6 completadas; fases 7 (offline) y 8 (cierre/docs) pendientes. |
 
 Las versiones completas y exactas resueltas están en `mobile/package-lock.json` y `server/package-lock.json`. El README registra Node 24.20.0, npm 11.19.0, Git 2.53.0 y Docker Engine/Compose 29.7.2/5.5.1 como versiones usadas durante el desarrollo; son referencia histórica, no mínimos declarados por `package.json`.
 
@@ -66,29 +68,53 @@ Las versiones completas y exactas resueltas están en `mobile/package-lock.json`
 │   ├── assets/                         # Iconos y favicon
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── AuthScreen.tsx          # Formulario de login/registro
 │   │   │   ├── ScreenHeader.tsx        # Encabezado y navegación de vuelta
 │   │   │   ├── TaskForm.tsx            # Formulario compartido alta/edición
-│   │   │   └── TaskItem.tsx            # Fila con acciones accesibles
+│   │   │   ├── TaskItem.tsx            # Fila con acciones accesibles
+│   │   │   └── TaskPhoto.tsx           # Vista previa y acciones de foto
+│   │   ├── context/
+│   │   │   └── AuthContext.tsx         # Estado de sesión y logout
 │   │   ├── hooks/useTasks.tsx          # Query y mutaciones de tareas
-│   │   ├── schemas/taskSchema.ts       # Validación del formulario móvil
-│   │   ├── services/api.ts             # Cliente HTTP y adaptación del ID
-│   │   ├── theme.ts                    # Colores y tema de Paper
+│   │   ├── schemas/
+│   │   │   ├── authSchema.ts           # Validación de login/registro
+│   │   │   └── taskSchema.ts           # Validación del formulario móvil
+│   │   ├── services/
+│   │   │   ├── api.ts                  # Cliente HTTP, refresh token e ID
+│   │   │   ├── authStorage.ts          # Persistencia de tokens
+│   │   │   ├── camera.ts               # Tomar foto con expo-image-picker
+│   │   │   ├── location.ts             # Obtener ciudad vía GPS + BigDataCloud
+│   │   │   └── photoStorage.ts         # Copiar foto a almacenamiento persistente
+│   │   ├── theme.ts                    # Colores y tipografía de Paper
 │   │   └── types/Task.ts               # Modelo que usa la app
-│   ├── app.json                        # Configuración Expo y rutas tipadas
+│   ├── app.json                        # Configuración Expo, plugins de cámara/ubicación y rutas tipadas
 │   ├── package.json                    # Scripts y dependencias móviles
 │   └── tsconfig.json                   # TypeScript estricto
 └── server/                             # API Express + Prisma
-    ├── .env.example                    # DATABASE_URL de ejemplo
-    ├── package.json                    # Scripts de desarrollo y typecheck
+    ├── .env.example                    # DATABASE_URL, JWT_SECRET y duraciones de tokens
+    ├── package.json                    # Scripts de desarrollo, test y typecheck
     ├── prisma.config.ts                # URL y configuración de Prisma 7
     ├── prisma/
-    │   ├── schema.prisma               # Modelo de datos
+    │   ├── schema.prisma               # Modelos User, RefreshToken y Task
     │   └── migrations/                 # SQL versionado; no borrar migraciones aplicadas
     ├── src/
     │   ├── index.ts                    # Express, CORS, JSON, health y errores
-    │   ├── routes/tasks.ts             # Enrutamiento del CRUD
-    │   ├── controllers/tasksController.ts # Validación, Prisma y respuestas HTTP
-    │   ├── schemas/taskSchema.ts       # Validación del body de API
+    │   ├── app.ts                      # App Express sin listen (para tests)
+    │   ├── routes/
+    │   │   ├── auth.ts                 # Rutas de autenticación
+    │   │   └── tasks.ts                # Enrutamiento del CRUD
+    │   ├── controllers/
+    │   │   ├── authController.ts       # Registro, login, logout, refresh
+    │   │   └── tasksController.ts      # Validación, Prisma y respuestas HTTP
+    │   ├── schemas/
+    │   │   ├── authSchema.ts           # Validación de registro/login
+    │   │   └── taskSchema.ts           # Validación del body de API
+    │   ├── services/
+    │   │   ├── password.ts             # Hash/verificación con Argon2id
+    │   │   ├── taskPhoto.ts            # Guardar/validar fotos en disco
+    │   │   └── token.ts                # Access/refresh tokens JWT
+    │   ├── middleware/
+    │   │   └── requireAuth.ts          # Validación de Bearer token
     │   ├── db/prisma.ts                # Cliente Prisma con adapter PostgreSQL
     │   └── generated/prisma/           # Cliente generado; no editar a mano
     └── tsconfig.json                   # TypeScript estricto
@@ -130,14 +156,18 @@ flowchart LR
 
 - La clave de lista es `['tasks']`; los detalles usan `['tasks', id]`. `useTasks` expone listado y mutaciones; `useTask` carga una tarea y ofrece sus mutaciones de edición y borrado.
 - Las mutaciones invalidan el prefijo `['tasks']` al tener éxito, refrescando lista y detalles activos. No hay actualización optimista; el `QueryClient` global desactiva reintentos de query.
-- `services/api.ts` consulta `/tasks` y `/tasks/:id`, elimina barras finales de `EXPO_PUBLIC_API_URL` y convierte el ID numérico a `string`. Los `404` se identifican como “Tarea no encontrada”; los demás errores HTTP usan el mensaje genérico.
+- `services/api.ts` consulta `/tasks` y `/tasks/:id`, elimina barras finales de `EXPO_PUBLIC_API_URL` y convierte el ID numérico a `string`. Ante un `401` intenta renovar el access token con `/auth/refresh`; si falla, cierra sesión. Los `404` se identifican como “Tarea no encontrada”; los demás errores HTTP usan el mensaje genérico.
+- `services/authStorage.ts` guarda access y refresh tokens en `expo-secure-store` (nativo) o `localStorage` (web).
+- `context/AuthContext.tsx` restaura la sesión validando `/auth/me`; distingue errores de red (mantener sesión) de `401` (cerrar sesión).
 - `Task` móvil permite `description: string | null`; Prisma también devuelve `null` cuando no se proporcionó descripción.
 
 ### API y acceso a datos
 
-- `server/src/index.ts` carga dotenv, crea Express, habilita JSON y CORS, registra `/health`, monta `tasksRouter` en `/tasks` y termina con un middleware de error que responde `500` genérico.
-- `routes/tasks.ts` mantiene las rutas finas y delega en el controlador.
-- `tasksController.ts` valida altas/ediciones, obtiene una tarea con `findUnique` y ejecuta las operaciones Prisma. `GET /tasks` ordena por `createdAt` descendente; `GET /tasks/:id` valida el ID y responde `404` si no la encuentra.
+- `server/src/index.ts` carga dotenv, crea Express, habilita JSON y CORS, registra `/health`, monta `authRouter` en `/auth` y `tasksRouter` en `/tasks`, y termina con un middleware de error que responde `500` genérico.
+- `routes/auth.ts` expone `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/refresh` y `GET /auth/me`.
+- `routes/tasks.ts` mantiene las rutas finas, aplica `requireAuth` y delega en el controlador.
+- `controllers/authController.ts` valida registro/login, hashea contraseñas con Argon2id, crea/gira refresh tokens y filtra por `userId`.
+- `tasksController.ts` valida altas/ediciones, obtiene una tarea con `findFirst` filtrando por `userId` y ejecuta las operaciones Prisma. `GET /tasks` ordena por `createdAt` descendente; `GET /tasks/:id` valida el ID y responde `404` si no la encuentra.
 - `db/prisma.ts` crea una instancia Prisma compartida y la conecta mediante `PrismaPg` usando `DATABASE_URL`.
 - `prisma.config.ts` carga dotenv y entrega `DATABASE_URL` a Prisma 7. El cliente generado en `src/generated/prisma` se recrea con `prisma generate`; no corregir manualmente sus archivos.
 
@@ -167,13 +197,43 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique @db.VarChar(255)
+  passwordHash  String         @map("password_hash")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  tasks         Task[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
 model Task {
   id          Int      @id @default(autoincrement())
   title       String   @db.VarChar(100)
   description String?  @db.Text
+  latitude    Float?
+  longitude   Float?
+  locationName String? @map("location_name") @db.VarChar(255)
+  photoPath   String?  @map("photo_path")
+  clientId    String?  @map("client_id") @db.Uuid
+  userId      Int?     @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  @@unique([userId, clientId])
   @@map("tasks")
 }
 ```
@@ -182,14 +242,22 @@ model Task {
 
 Base local predeterminada: `http://localhost:3000`.
 
-| Método | Ruta | Body | Resultado normal | Errores previstos |
-|---|---|---|---|---|
-| `GET` | `/health` | — | `200`, `{"status":"ok"}` | — |
-| `GET` | `/tasks` | — | `200`, arreglo ordenado por creación descendente; puede ser `[]` | Error interno `500` |
-| `GET` | `/tasks/:id` | — | `200`, tarea individual | `400` si el ID no es válido; `404` con `{"error":"Tarea no encontrada"}` |
-| `POST` | `/tasks` | `{"title":"...","description":"..."}` (`description` opcional) | `201`, tarea creada | `400` con `{ "errors": { ... } }` si no valida; error interno `500` |
-| `PUT` | `/tasks/:id` | Título obligatorio; descripción opcional | `200`, tarea actualizada | `400` si no valida; `404` si no existe |
-| `DELETE` | `/tasks/:id` | — | `204`, sin body | `404` con `{"error":"Tarea no encontrada"}` para errores atrapados por el controlador |
+| Método | Ruta | Auth | Body | Resultado normal | Errores previstos |
+|---|---|---|---|---|---|
+| `POST` | `/auth/register` | No | `{"email":"...","password":"..."}` | `201` `{ accessToken, refreshToken, user }` | `400` validación; `409` correo duplicado; `429` rate limit |
+| `POST` | `/auth/login` | No | `{"email":"...","password":"..."}` | `200` `{ accessToken, refreshToken, user }` | `401` credenciales inválidas; `429` rate limit |
+| `POST` | `/auth/logout` | No | `{"refreshToken":"..."}` | `204`, sin body | — |
+| `POST` | `/auth/refresh` | No | `{"refreshToken":"..."}` | `200` `{ accessToken, refreshToken, user }` | `401` refresh token inválido/expirado; `429` rate limit |
+| `GET` | `/auth/me` | Sí | — | `200` `{ id, email }` | `401` token inválido |
+| `GET` | `/health` | No | — | `200`, `{"status":"ok"}` | — |
+| `GET` | `/tasks` | Sí | — | `200`, arreglo ordenado por creación descendente; puede ser `[]` | Error interno `500` |
+| `GET` | `/tasks/:id` | Sí | — | `200`, tarea individual | `400` si el ID no es válido; `404` con `{"error":"Tarea no encontrada"}` |
+| `POST` | `/tasks` | Sí | `{"title":"...","description":"...",...}` (`description` opcional) | `201`, tarea creada | `400` con `{ "errors": { ... } }` si no valida; error interno `500` |
+| `PUT` | `/tasks/:id` | Sí | Título obligatorio; descripción opcional | `200`, tarea actualizada | `400` si no valida; `404` si no existe |
+| `DELETE` | `/tasks/:id` | Sí | — | `204`, sin body | `404` con `{"error":"Tarea no encontrada"}` para errores atrapados por el controlador |
+| `POST` | `/tasks/:id/photo` | Sí | `multipart/form-data` campo `photo` | `200` `{ ...task, hasPhoto: true }` | `400` tipo inválido; `413` > 5 MB; `404` tarea ajena |
+| `GET` | `/tasks/:id/photo` | Sí | — | Archivo de imagen | `404` si no hay foto |
+| `DELETE` | `/tasks/:id/photo` | Sí | — | `204` | `404` tarea ajena |
 
 Ejemplo de tarea serializada por Express (la fecha real depende del servidor):
 
@@ -214,6 +282,15 @@ Los esquemas de móvil y servidor están duplicados; no comparten un paquete:
 - `PUT` requiere título; descripción ausente, `null` o en blanco se guarda como `null`.
 
 Los errores de validación responden con `400` y un objeto `errors`. `GET /tasks/:id` responde `400` para un ID inválido y `404` si no encuentra la tarea; `PUT`/`DELETE` usan `404` para errores atrapados por sus controladores; el middleware final responde `500` a errores no capturados.
+
+### Autenticación y tokens
+
+- `JWT_SECRET` debe tener al menos 32 caracteres; el servidor no arranca sin él.
+- `JWT_ACCESS_EXPIRES_IN` define la vida del access token (por defecto `15m`).
+- `JWT_REFRESH_EXPIRES_IN` define la vida del refresh token (por defecto `7d`).
+- El refresh token es un UUID aleatorio; se almacena su hash SHA-256 en `refresh_tokens`. Se rota en cada uso (`/auth/refresh` crea uno nuevo y borra el anterior) y se invalida al cerrar sesión (`/auth/logout`).
+- El cliente guarda access token y refresh token; ante `401` intenta `/auth/refresh` una sola vez. Si también falla, cierra sesión localmente.
+- En web los tokens viven en `localStorage`; en nativos, en `expo-secure-store`.
 
 ## 6. Entorno, instalación y ejecución
 
@@ -241,6 +318,12 @@ En macOS/Linux/Git Bash usa `cp` en lugar de `Copy-Item`.
 `localhost` en el teléfono refiere al teléfono, no al computador. Para teléfono físico, ambos deben estar en la misma Wi‑Fi y el firewall debe permitir la API. `EXPO_PUBLIC_API_URL` se incluye en el bundle público: nunca poner credenciales allí. Reinicia Metro después de cambiarla.
 
 3. `server/.env` usa `DATABASE_URL` para conectar desde el servidor al PostgreSQL del host. El ejemplo corresponde a Compose en `localhost:5433`; si se cambian puerto, base, usuario o contraseña, alinea `DATABASE_URL` con Compose.
+
+4. `server/.env` también requiere:
+   - `JWT_SECRET`: secreto aleatorio de al menos 32 caracteres.
+   - `JWT_ACCESS_EXPIRES_IN`: duración del access token (ej. `15m`).
+   - `JWT_REFRESH_EXPIRES_IN`: duración del refresh token (ej. `7d`).
+   El servidor valida `JWT_SECRET` al arrancar y falla si falta o es corto.
 
 El `docker-compose.yml` admite un `.env` opcional en la raíz para `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` y `POSTGRES_PORT`. El puerto publicado predeterminado es `127.0.0.1:5433`; el contenedor escucha en `5432`. Los valores predeterminados del README son únicamente de desarrollo local.
 
@@ -290,10 +373,12 @@ Para parar, detén Metro y API con `Ctrl+C`; usa `docker compose stop` para para
 | `mobile/` | `npm run android` / `npm run ios` | Abrir el destino indicado con Expo |
 | `mobile/` | `npm run lint` | `expo lint` |
 | `mobile/` | `npm run format` | `prettier --write .`; modifica archivos, úsalo solo cuando se busca formatear todo el paquete |
+| `mobile/` | `npm test` | `jest` |
 | `server/` | `npm run dev` | `tsx watch src/index.ts` |
 | `server/` | `npm run typecheck` | `tsc --noEmit` |
+| `server/` | `npm test` | `vitest run` |
 
-No hay script `test`, `build` ni `lint` declarado en `server/`. Para móvil, el typecheck disponible se ejecuta directamente:
+Para móvil, el typecheck disponible se ejecuta directamente:
 
 ```bash
 # Desde mobile/
@@ -308,14 +393,19 @@ npm run typecheck
 
 ### Lista de aceptación manual
 
+- Registro/login/logout: crear cuenta, comprobar que la lista es privada; cerrar sesión y volver a login.
+- Aislamiento entre usuarios: una tarea creada por A no la ve B.
+- Refresco de token: dejar pasar ~15 min (o reiniciar la app) y verificar que sigue autenticado sin volver a escribir credenciales.
 - Abrir lista vacía y comprobar el estado vacío.
 - Crear una tarea válida; verificar que aparece y que el formulario se limpia al guardar.
 - Intentar guardar un título vacío o de más de 100 caracteres; comprobar los mensajes. Dejar la descripción vacía sí debe permitir guardar.
 - Abrir una tarea desde la lista; tocar el título y la descripción para sobrescribirlos; verificar **Guardar**, **Cancelar** y la actualización de la tarjeta.
+- Foto: tomar/adjuntar foto, ver miniatura en lista, ver foto en detalle, eliminar foto.
+- Ubicación: crear tarea con ubicación y verificar que muestra la ciudad; crear sin ubicación y verificar que no pide permiso.
 - Cancelar un borrado y luego confirmar otro; comprobar el estado al borrar la última tarea.
 - Apagar la API temporalmente: la app debe mostrar el error y permitir reintentar sin cerrarse.
 - Comprobar persistencia al detener/reiniciar la app/API, manteniendo `pgdata`.
-- Para comprobar la API: probar `/health`, `GET /tasks`, `GET /tasks/:id` válido/inválido/inexistente, `POST` con y sin descripción, `PUT` con descripción vacía, y `DELETE` exitoso e inexistente.
+- Para comprobar la API: probar `/health`, `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`; `GET /tasks`, `GET /tasks/:id` válido/inválido/inexistente, `POST` con y sin descripción, `PUT` con descripción vacía, `DELETE` exitoso e inexistente, y subida de foto válida/inválida.
 
 El registro del README/plan es histórico. Al afirmar que un cambio nuevo funciona, ejecuta la verificación más acotada que cubra esa modificación; no presentes como ejecutadas las pruebas automatizadas que no existen.
 
@@ -354,18 +444,21 @@ No copies una regla solo al frontend: la API es una frontera independiente y deb
 
 Estos puntos describen el comportamiento presente; no son autorización para ampliar alcance automáticamente.
 
-- La app no implementa autenticación, usuarios, permisos, persistencia offline, sincronización ni APIs externas. Todas las tareas pertenecen al único conjunto de datos de la base.
+- Autenticación con JWT y refresh tokens rotatorios está implementada. Persistencia offline, sincronización y APIs externas (salvo BigDataCloud para la ciudad) siguen sin implementarse.
 - No hay paginación. `GET /tasks/:id` carga el detalle individual; título y descripción se editan en línea, sin una ruta separada.
 - CORS está habilitado con la configuración predeterminada de `cors`; no hay lista de orígenes ni autenticación. Está pensado para desarrollo/uso local, no constituye una configuración de producción.
-- `GET /tasks/:id` valida un entero positivo dentro del rango de `Int`. Los controladores heredados de `PUT`/`DELETE` siguen convirtiendo `req.params.id` con `Number()` sin validación explícita y capturan cualquier error de Prisma como `404`.
+- `GET /tasks/:id`, `PUT /tasks/:id` y `DELETE /tasks/:id` validan el ID como entero positivo dentro del rango de `Int` y filtran por `userId`; una tarea ajena responde `404`.
 - El cliente móvil muestra el error genérico ante fallos de red/HTTP; los `404` del endpoint individual se muestran como “Tarea no encontrada”. No hay timeout ni presentación de errores detallados de Zod.
 - La descripción se normaliza a `null` cuando falta o queda vacía. La app recorta el título, pero la validación del servidor no; una petición directa con título de espacios puede pasar.
-- No hay suite automatizada de pruebas configurada ni script de lint para el servidor. Las pruebas opcionales que menciona el plan no forman parte de las dependencias actuales.
-- Credenciales y puertos de Compose son valores de desarrollo. Antes de una publicación real se requerirían decisiones explícitas de autenticación, CORS, secretos, despliegue, límites de entrada y manejo de errores; no asumirlas para una tarea del CRUD.
+- Existen suites de pruebas automatizadas (`jest-expo` + RNTL en móvil, `vitest` + Supertest en servidor). No hay lint configurado para el servidor.
+- Tokens en web se guardan en `localStorage`, lo que los hace vulnerables a XSS.
+- No hay revocación de access tokens antes de su expiración; un token robado es válido hasta que caduque (`JWT_ACCESS_EXPIRES_IN`). El refresh token se invalida al hacer logout.
+- `express-rate-limit` usa almacenamiento en memoria; no escala a múltiples réplicas ni está configurado para proxies.
+- Credenciales, puertos, JWT secret y duraciones son valores de desarrollo. Antes de una publicación real se requerirían HTTPS, CORS restringido, rate limit distribuido, secretos seguros y despliegue definido.
 
 ## 10. Estado del plan y documentación relacionada
 
-El registro de [`plan movil.md`](plan%20movil.md) marca las fases 0–8 —entorno, app, UI, CRUD local, PostgreSQL, API, integración, pulido y README— como completadas. La fase 7 menciona React Native Testing Library como opcional y no ejecutada; la fase 5 deja Jest/Supertest como opcional. El estado real se debe confirmar en el código y scripts, no solo en esas casillas.
+El registro de [`plan movil.md`](plan%20movil.md) marca las fases 0–8 del CRUD base como completadas. El plan de expansión en [`plan-expansion.md`](plan-expansion.md) registra las fases 0–6 completadas (infraestructura de pruebas, autenticación, modelo ampliado, GPS, fotos y refresh tokens); las fases 7A/7B (almacenamiento local y sincronización offline) y 8 (cierre y documentación final) están pendientes. El estado real se debe confirmar en el código y scripts, no solo en las casillas.
 
 Referencias útiles:
 

@@ -53,13 +53,25 @@ Scripts a agregar: `mobile` → `"test": "jest"`; `server` → `"test": "vitest 
 
 ```prisma
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique @db.VarChar(255)
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
-  tasks        Task[]
+  id            Int            @id @default(autoincrement())
+  email         String         @unique @db.VarChar(255)
+  passwordHash  String         @map("password_hash")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  tasks         Task[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
 }
 
 model Task {
@@ -87,9 +99,11 @@ model Task {
 
 | Método | Ruta | Auth | Detalle |
 |---|---|---|---|
-| `POST` | `/auth/register` | No | `{email, password}` → `201` `{token, user:{id,email}}`. `409` si el correo existe. Nunca devuelve `passwordHash`. |
-| `POST` | `/auth/login` | No | `200` `{token, user}`; `401` con mensaje genérico `Credenciales inválidas` (no distinguir correo inexistente de contraseña errónea). Con límite de intentos. |
-| `GET` | `/auth/me` | Sí | `200` `{id,email}`; sirve para validar el token guardado. |
+| `POST` | `/auth/register` | No | `{email, password}` → `201` `{accessToken, refreshToken, user}`. `409` si el correo existe. Nunca devuelve `passwordHash`. |
+| `POST` | `/auth/login` | No | `200` `{accessToken, refreshToken, user}`; `401` con mensaje genérico `Credenciales inválidas` (no distinguir correo inexistente de contraseña errónea). Con límite de intentos. |
+| `POST` | `/auth/logout` | No | `{refreshToken}` → `204`. Invalida el refresh token en el servidor. |
+| `POST` | `/auth/refresh` | No | `{refreshToken}` → `200` `{accessToken, refreshToken, user}`. Rota el refresh token. |
+| `GET` | `/auth/me` | Sí | `200` `{id,email}`; sirve para validar el access token guardado. |
 | `*` | `/tasks...` | Sí | Todas filtradas por `userId` del token. Una tarea ajena responde `404` (no `403`, para no revelar que existe). |
 | `POST` | `/tasks` | Sí | Acepta además `latitude`, `longitude` (ambos o ninguno), `locationName` nullable y `clientId`. La app guarda el nombre de ciudad devuelto por BigDataCloud si se pidió ubicación. Si ya existe `(userId, clientId)`, devuelve la existente. |
 | `POST` | `/tasks/:id/photo` | Sí | `multipart/form-data`, campo `photo`; `image/jpeg`, `image/png` o `image/webp`; máx. 5 MB (`413` si excede, `400` si el tipo no es válido). Reemplaza la foto anterior. |
@@ -100,7 +114,12 @@ La respuesta de tarea agrega `latitude`, `longitude`, `locationName`, `clientId`
 
 Validación de reglas nuevas (Zod, en ambos lados): `latitude` ∈ [−90, 90], `longitude` ∈ [−180, 180], `locationName` opcional, máximo 255 caracteres; contraseña de 8 a 128 caracteres.
 
-Variables nuevas en `server/.env.example`: `JWT_SECRET` (el servidor debe **negarse a arrancar** si falta o tiene menos de 32 caracteres) y `JWT_EXPIRES_IN` (por ejemplo `7d`).
+Variables nuevas en `server/.env.example`:
+- `JWT_SECRET`: el servidor debe **negarse a arrancar** si falta o tiene menos de 32 caracteres.
+- `JWT_ACCESS_EXPIRES_IN`: duración del access token (por ejemplo `15m`).
+- `JWT_REFRESH_EXPIRES_IN`: duración del refresh token (por ejemplo `7d`).
+
+El refresh token es un UUID aleatorio cuyo hash SHA-256 se guarda en `refresh_tokens`. Se rota en cada uso y se invalida al hacer logout. El cliente almacena ambos tokens y reintenta automáticamente ante un `401`.
 
 ### Modelo móvil objetivo (`src/types/Task.ts`)
 
@@ -157,18 +176,21 @@ Primero las herramientas, para que cada fase siguiente nazca con sus pruebas.
 
 - [x] Modelo `User` y `userId` en `Task`; migración versionada (ver nota de filas antiguas arriba).
 - [x] `server/src/services/password.ts`: `hashPassword(plain)` y `verifyPassword(hash, plain)` con `argon2.hash` / `argon2.verify` usando **Argon2id** (`type: argon2.argon2id`). Parámetros: como mínimo los de OWASP (19 MiB de memoria, 2 iteraciones, 1 hilo); el valor por defecto del paquete es más fuerte y también es válido. Recordar `await` en `verify` (sin él la comparación siempre sería "verdadera"). El orden de argumentos es `verify(hash, password)`.
-- [x] `server/src/services/token.ts`: firmar y verificar JWT con `JWT_SECRET`; fallar al iniciar si el secreto no es válido.
+- [x] `server/src/services/token.ts`: firmar y verificar **access token** con `JWT_SECRET`; fallar al iniciar si el secreto no es válido. Generar UUIDs para refresh tokens y hashearlos con SHA-256.
+- [x] Modelo `RefreshToken` relacionado con `User`; migración versionada.
 - [x] Esquemas Zod de registro y login (correo, contraseña 8–128).
-- [x] `routes/auth.ts` + `controllers/authController.ts`: `register`, `login`, `me`. Cuando el correo no existe en login, igualmente verificar contra un hash falso para no revelar por tiempo de respuesta qué correos existen.
+- [x] `routes/auth.ts` + `controllers/authController.ts`: `register`, `login`, `logout`, `refresh`, `me`. `register`/`login` devuelven `{accessToken, refreshToken, user}`. `refresh` rota el refresh token (borra el anterior, crea uno nuevo). `logout` invalida el refresh token. Cuando el correo no existe en login, igualmente verificar contra un hash falso para no revelar por tiempo de respuesta qué correos existen.
 - [x] `middleware/requireAuth.ts`: valida `Authorization: Bearer`, adjunta `req.userId`; `401` si falta o es inválido.
 - [x] Aplicar `requireAuth` a `/tasks` y filtrar **todas** las consultas por `userId` (incluidas `PUT` y `DELETE`, que hoy convierten el ID sin validar: aprovechar para validar el ID con el mismo helper que ya usa `GET /tasks/:id`).
 - [x] `express-rate-limit` en `/auth/login` y `/auth/register`.
-- [x] Actualizar `.env.example`.
+- [x] Actualizar `.env.example` con `JWT_SECRET`, `JWT_ACCESS_EXPIRES_IN` y `JWT_REFRESH_EXPIRES_IN`.
 
 **Pruebas (Vitest + Supertest)**
 - [x] `password`: el hash empieza con `$argon2id$`; `verify` acepta la contraseña correcta y rechaza una incorrecta; dos hashes de la misma contraseña son distintos (sal).
 - [x] Registro: `201` sin `passwordHash` en la respuesta; correo duplicado → `409`; contraseña corta → `400`.
-- [x] Login: correcto → token; incorrecto → `401` con el mismo mensaje que correo inexistente.
+- [x] Login: correcto → `accessToken` + `refreshToken`; incorrecto → `401` con el mismo mensaje que correo inexistente.
+- [x] Logout: `204` y el refresh token ya no sirve.
+- [x] Refresh: con refresh token válido devuelve nuevos tokens; con token inválido/expirado → `401`.
 - [x] `/tasks` sin token → `401`; con token inválido → `401`.
 - [x] Aislamiento: el usuario B no puede ver, editar ni borrar la tarea del usuario A (`404`).
 
@@ -176,9 +198,9 @@ Primero las herramientas, para que cada fase siguiente nazca con sus pruebas.
 
 ## Fase 3 — Autenticación en la app
 
-- [x] `src/services/authStorage.ts`: guardar/leer/borrar el token con `expo-secure-store` (respaldo `localStorage` solo en web).
-- [x] `src/context/AuthContext.tsx`: estado `loading | signedOut | signedIn`, `signIn`, `signUp`, `signOut`; al iniciar, leer el token y validarlo con `GET /auth/me`. **Si no hay red, mantener la sesión con el token guardado** (importante para la fase 7).
-- [x] `services/api.ts`: enviar `Authorization: Bearer <token>` en todas las llamadas; ante `401`, cerrar sesión.
+- [x] `src/services/authStorage.ts`: guardar/leer/borrar **access y refresh tokens** con `expo-secure-store` (respaldo `localStorage` solo en web).
+- [x] `src/context/AuthContext.tsx`: estado `loading | signedOut | signedIn`, `signIn`, `signUp`, `signOut`; al iniciar, leer el access token y validarlo con `GET /auth/me`. **Si no hay red, mantener la sesión con los tokens guardados** (importante para la fase 7). Ante `401` de `/auth/me`, intentar `/auth/refresh`; si no hay refresh token o falla, cerrar sesión.
+- [x] `services/api.ts`: enviar `Authorization: Bearer <accessToken>` en todas las llamadas; ante `401`, intentar renovar con `/auth/refresh` una sola vez y reintentar la request original. Si el refresh falla, cerrar sesión.
 - [x] Pantallas `app/login.tsx` y `app/register.tsx` con React Hook Form + Zod + Paper (mismo patrón que `TaskForm`, respetando la bifurcación nativo/web de los inputs). Campo de contraseña con ocultar/mostrar y mensajes de error en español.
 - [x] `app/_layout.tsx`: proteger las rutas de tareas con `Stack.Protected` (o redirección equivalente según la documentación de Expo Router SDK 57) y mostrar login si no hay sesión.
 - [x] Botón **Cerrar sesión** en la lista. Al cambiar de usuario, limpiar la caché de TanStack Query (`queryClient.clear()`).
@@ -186,9 +208,10 @@ Primero las herramientas, para que cada fase siguiente nazca con sus pruebas.
 
 **Pruebas (RNTL)**
 - [x] Login con campos vacíos muestra errores y no llama a la API.
-- [x] Login correcto guarda el token y navega a la lista (mock de `authStorage` y `api`).
+- [x] Login correcto guarda access y refresh tokens y navega a la lista (mock de `authStorage` y `api`).
 - [x] Login incorrecto muestra "Credenciales inválidas".
-- [x] Una respuesta `401` cierra la sesión.
+- [x] Una respuesta `401` sin refresh token cierra la sesión.
+- [x] Una respuesta `401` con refresh token válido renueva la sesión sin pedir credenciales.
 
 **Checkpoint pendiente (integración manual):** registrar dos usuarios y comprobar en la app que cada uno ve solo sus tareas.
 
@@ -280,16 +303,17 @@ Se divide en dos mitades; cerrar y aprobar la 7A antes de empezar la 7B.
 
 ## Fase 8 — Cierre
 
-- [ ] Ejecutar todo: `npm test`, `npx tsc --noEmit` y `npm run lint` en `mobile/`; `npm test` y `npm run typecheck` en `server/`.
-- [ ] Ampliar la lista de aceptación manual de `documentacion.md` (sección 7): registro/login/logout, aislamiento entre usuarios, foto (tomar, ver en lista, ver en detalle, eliminar), ubicación (con y sin permiso), modo avión (crear/editar/eliminar y sincronizar), reinicio de la app.
-- [ ] Actualizar `documentacion.md`:
-  - Sección 1: la línea que dice que autenticación y offline son "extensiones futuras" ya no aplica; actualizar también la regla de dependencias.
-  - Secciones 2, 3 y 4: estado, estructura de carpetas nueva y diagrama (ahora la UI lee de SQLite y hay una capa de sincronización).
-  - Sección 5: modelo, esquema Prisma, endpoints y validaciones nuevos.
-  - Sección 6 y 7: variables `JWT_SECRET` / `JWT_EXPIRES_IN`, scripts `test`, carpeta `uploads/`.
-  - Sección 9: reemplazar los límites obsoletos y listar los nuevos (web como mejor esfuerzo para fotos, primer login con conexión, resolución de conflictos simple, JWT sin revocación, CORS aún sin restringir).
-  - Sección 10: estado del plan.
-- [ ] Actualizar `README.md` (permisos de cámara/ubicación, variables de entorno nuevas, cómo correr las pruebas, nota sobre usar teléfono físico para cámara y GPS).
-- [ ] Revisar que no se versionen secretos ni `server/uploads/`.
+- [x] Ejecutar todo: `npm test`, `npx tsc --noEmit` y `npm run lint` en `mobile/`; `npm test` y `npm run typecheck` en `server/`.
+- [x] Ampliar la lista de aceptación manual de `documentacion.md` (sección 7): registro/login/logout, aislamiento entre usuarios, foto, ubicación, reinicio de la app.
+- [x] Actualizar `documentacion.md`:
+  - [x] Sección 1: la línea que dice que autenticación es "extensión futura" ya no aplica; offline sigue pendiente.
+  - [x] Secciones 2 y 3: estado actual y estructura de carpetas nueva.
+  - [x] Sección 4: descripción del cliente HTTP con refresh y del flujo de autenticación en API.
+  - [x] Sección 5: modelo User/RefreshToken/Task, endpoints de auth, validaciones y sección de tokens.
+  - [x] Sección 6 y 7: variables `JWT_SECRET` / `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN`, scripts `test`.
+  - [x] Sección 9: reemplazar límites obsoletos y listar riesgos actuales (web/localStorage, revocación de access tokens, rate limit en memoria, CORS).
+  - [x] Sección 10: estado del plan.
+- [ ] Actualizar `README.md` (permisos de cámara/ubicación, variables de entorno nuevas, cómo correr las pruebas, nota sobre usar teléfono físico para cámara y GPS, endpoints de autenticación).
+- [x] Revisar que no se versionen secretos ni `server/uploads/`.
 
 **Checkpoint final:** entrega con pruebas verdes y documentación al día. No marcar como ejecutado nada que no se haya corrido.
