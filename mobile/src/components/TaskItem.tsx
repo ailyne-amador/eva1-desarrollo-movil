@@ -10,12 +10,33 @@ type TaskItemProps = {
   onDelete: () => void;
 };
 
+function SyncIndicator({ task }: { task: Task }) {
+  if (task.syncStatus === "synced" && task.photoStatus !== "pending_upload" && task.photoStatus !== "pending_delete") {
+    return null;
+  }
+  const label =
+    task.syncStatus === "pending_delete"
+      ? "Pendiente de eliminar"
+      : task.syncStatus === "pending_create"
+        ? "Pendiente de subir"
+        : task.syncStatus === "pending_update"
+          ? "Pendiente de actualizar"
+          : task.photoStatus === "pending_upload"
+            ? "Pendiente de subir foto"
+            : "Pendiente de borrar foto";
+  return (
+    <Text variant="bodySmall" style={styles.pendingText}>
+      {label}
+    </Text>
+  );
+}
+
 export function TaskItem({ task, onView, onDelete }: TaskItemProps) {
   return (
     <View style={styles.row}>
       {task.hasPhoto && (
         <TaskPhoto
-          taskId={task.id}
+          task={task}
           accessibilityLabel={`Foto de ${task.title}`}
           style={styles.thumbnail}
         />
@@ -32,6 +53,7 @@ export function TaskItem({ task, onView, onDelete }: TaskItemProps) {
         <Text variant="bodyMedium" style={styles.description}>
           {task.description?.trim() || "Sin descripción"}
         </Text>
+        <SyncIndicator task={task} />
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -78,6 +100,9 @@ const styles = StyleSheet.create({
   },
   description: {
     color: colors.muted,
+  },
+  pendingText: {
+    color: colors.accent,
   },
   delete: {
     paddingVertical: 8,

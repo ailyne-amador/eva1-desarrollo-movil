@@ -1,10 +1,9 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { PaperProvider } from "react-native-paper";
-import { useTask } from "./hooks/useTasks";
+import { useTask, type UseTaskReturn } from "./hooks/useTasks";
 import type { Task } from "./types/Task";
 import { takePhoto } from "./services/camera";
-import { savePhoto } from "./services/photoStorage";
 import { getCurrentCoords, getCityName } from "./services/location";
 import TaskDetailScreen from "../app/task/view/[id]";
 
@@ -15,7 +14,6 @@ jest.mock("expo-router", () => ({
 jest.mock("./services/camera", () => ({ takePhoto: jest.fn() }));
 jest.mock("./hooks/useTasks", () => ({ useTask: jest.fn() }));
 jest.mock("./services/photoStorage", () => ({
-  savePhoto: jest.fn(),
   deletePhoto: jest.fn().mockResolvedValue(undefined),
   getPhotoUri: jest.fn().mockResolvedValue(null),
 }));
@@ -29,16 +27,21 @@ jest.mock("./services/authStorage", () => ({
 
 const task: Task = {
   id: "1",
+  serverId: 1,
   title: "Comprar leche",
   description: null,
   latitude: 4.5,
   longitude: -74.1,
   locationName: "Bogotá",
-  clientId: null,
+  photoUri: null,
+  photoStatus: "none",
+  syncStatus: "synced",
   hasPhoto: false,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 };
 
-const hookResult = (value: Task) => ({
+const hookResult = (value: Task): UseTaskReturn => ({
   task: value,
   isLoading: false,
   isError: false,
@@ -105,7 +108,7 @@ test("no expone coordenadas cuando BigDataCloud no devuelve ciudad", async () =>
 });
 
 test("confirma antes de eliminar una foto", async () => {
-  const hooks = hookResult({ ...task, hasPhoto: true });
+  const hooks = hookResult({ ...task, hasPhoto: true, photoStatus: "synced" });
   jest.mocked(useTask).mockReturnValue(hooks);
   const view = await render(
     <PaperProvider>
@@ -117,11 +120,11 @@ test("confirma antes de eliminar una foto", async () => {
   expect(view.getByText("¿Quieres eliminar la foto de esta tarea?")).toBeTruthy();
   const deleteButtons = view.getAllByRole("button", { name: "Eliminar" });
   await fireEvent.press(deleteButtons[deleteButtons.length - 1]);
-  expect(hooks.deleteTaskPhoto).toHaveBeenCalledWith("1");
+  expect(hooks.deleteTaskPhoto).toHaveBeenCalledWith();
 });
 
 test("cancelar la confirmación no elimina la foto", async () => {
-  const hooks = hookResult({ ...task, hasPhoto: true });
+  const hooks = hookResult({ ...task, hasPhoto: true, photoStatus: "synced" });
   jest.mocked(useTask).mockReturnValue(hooks);
   const view = await render(
     <PaperProvider>
@@ -142,7 +145,6 @@ test("toma y sube una foto desde el detalle", async () => {
     status: "ok",
     uri: "file:///cache/foto.jpg",
   });
-  jest.mocked(savePhoto).mockResolvedValue("file:///document/1.jpg");
   const view = await render(
     <PaperProvider>
       <TaskDetailScreen />
@@ -152,12 +154,8 @@ test("toma y sube una foto desde el detalle", async () => {
   await fireEvent.press(view.getByRole("button", { name: "Tomar foto" }));
 
   await waitFor(() =>
-    expect(hooks.uploadTaskPhoto).toHaveBeenCalledWith(
-      "1",
-      "file:///document/1.jpg",
-    ),
+    expect(hooks.uploadTaskPhoto).toHaveBeenCalledWith("file:///cache/foto.jpg"),
   );
-  expect(savePhoto).toHaveBeenCalledWith("1", "file:///cache/foto.jpg");
 });
 
 test("añade ubicación desde el detalle", async () => {

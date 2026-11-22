@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -12,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskItem } from "../src/components/TaskItem";
 import { useTasks } from "../src/hooks/useTasks";
 import { useAuth } from "../src/context/AuthContext";
+import { useSyncStatus } from "../src/services/sync";
 import { colors, displayFont, radius, shadow } from "../src/theme";
 import type { Task } from "../src/types/Task";
 
@@ -27,6 +34,7 @@ export default function Index() {
     refetchTasks,
     isDeletingTask,
   } = useTasks();
+  const isSyncing = useSyncStatus();
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [deleteError, setDeleteError] = useState(false);
 
@@ -60,6 +68,7 @@ export default function Index() {
               {tasks.length === 0
                 ? "Nada pendiente"
                 : `${tasks.length} ${tasks.length === 1 ? "pendiente" : "pendientes"}`}
+              {isSyncing && " · Sincronizando..."}
             </Text>
           )}
         </View>
@@ -98,6 +107,13 @@ export default function Index() {
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isSyncing}
+            onRefresh={() => void refetchTasks()}
+            tintColor={colors.accent}
+          />
+        }
         contentContainerStyle={[
           styles.list,
           tasks.length === 0 && styles.emptyList,

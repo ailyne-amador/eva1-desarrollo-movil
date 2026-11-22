@@ -1,5 +1,5 @@
+import { Platform } from "react-native";
 import {
-  clearAuthToken,
   getAuthToken,
   getRefreshToken,
   saveAuthToken,
@@ -8,7 +8,19 @@ import {
 import type { TaskFormValues } from "../schemas/taskSchema";
 import type { Task } from "../types/Task";
 
-type ApiTask = Omit<Task, "id"> & { id: number };
+export type ServerTask = {
+  id: number;
+  title: string;
+  description: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationName: string | null;
+  clientId: string | null;
+  hasPhoto: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type RequestOptions = { authenticated?: boolean };
 type UnauthorizedHandler = () => void | Promise<void>;
 
@@ -160,28 +172,23 @@ export async function getCurrentUser(): Promise<AuthUser> {
   return (await response.json()) as AuthUser;
 }
 
-function toTask({ id, ...task }: ApiTask): Task {
-  return { ...task, id: String(id) };
-}
-
-export async function getTask(id: string): Promise<Task> {
+export async function getTask(id: string): Promise<ServerTask> {
   const response = await request(`/tasks/${encodeURIComponent(id)}`);
-  return toTask((await response.json()) as ApiTask);
+  return (await response.json()) as ServerTask;
 }
 
-export async function getTasks(): Promise<Task[]> {
+export async function getTasks(): Promise<ServerTask[]> {
   const response = await request("/tasks");
-  const tasks = (await response.json()) as ApiTask[];
-  return tasks.map(toTask);
+  return (await response.json()) as ServerTask[];
 }
 
-export async function createTask(values: TaskFormValues): Promise<Task> {
+export async function createTask(values: TaskFormValues): Promise<ServerTask> {
   const response = await request("/tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(values),
   });
-  return toTask((await response.json()) as ApiTask);
+  return (await response.json()) as ServerTask;
 }
 
 export async function updateTask(
@@ -199,17 +206,32 @@ export async function deleteTask(id: string): Promise<void> {
   await request(`/tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-export function getTaskPhotoUrl(id: string): string {
+export function getTaskPhotoUrl(serverId: string): string {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "") ?? "";
-  return `${apiUrl}/tasks/${encodeURIComponent(id)}/photo`;
+  return `${apiUrl}/tasks/${encodeURIComponent(serverId)}/photo`;
+}
+
+export async function getTaskPhoto(serverId: string): Promise<ArrayBuffer> {
+  const response = await request(`/tasks/${encodeURIComponent(serverId)}/photo`);
+  return response.arrayBuffer();
 }
 
 export async function uploadTaskPhoto(
   id: string,
   photo: string | Blob,
 ): Promise<void> {
-  const file =
-    typeof photo === "string" ? await (await fetch(photo)).blob() : photo;
+  // En nativo evitamos fetch().blob() para no disparar la advertencia de React Native Blob.
+  let file: Blob;
+  if (typeof photo === "string") {
+    if (Platform.OS === "web") {
+      file = await (await fetch(photo)).blob();
+    } else {
+      const { File } = await import("expo-file-system");
+      file = new File(photo);
+    }
+  } else {
+    file = photo;
+  }
   const body = new FormData();
   body.append("photo", file, "photo.jpg");
   await request(`/tasks/${encodeURIComponent(id)}/photo`, {
@@ -220,4 +242,28 @@ export async function uploadTaskPhoto(
 
 export async function deleteTaskPhoto(id: string): Promise<void> {
   await request(`/tasks/${encodeURIComponent(id)}/photo`, { method: "DELETE" });
+}
+
+// Utilidad para convertir una tarea del servidor al modelo local.
+// Se usa en pruebas y utilidades de sincronización.
+export function serverTaskToLocal(
+  serverTask: ServerTask,
+  overrides?: Partial<Task>,
+): Task {
+  return {
+    id: serverTask.clientId ?? String(serverTask.id),
+    serverId: serverTask.id,
+    title: serverTask.title,
+    description: serverTask.description,
+    latitude: serverTask.latitude,
+    longitude: serverTask.longitude,
+    locationName: serverTask.locationName,
+    photoUri: null,
+    photoStatus: serverTask.hasPhoto ? "synced" : "none",
+    syncStatus: "synced",
+    hasPhoto: serverTask.hasPhoto,
+    createdAt: serverTask.createdAt,
+    updatedAt: serverTask.updatedAt,
+    ...overrides,
+  };
 }

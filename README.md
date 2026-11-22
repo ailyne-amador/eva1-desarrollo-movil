@@ -13,10 +13,16 @@ Aplicación móvil para crear, listar, consultar, editar y eliminar tareas. La a
 | Navegación | Expo Router | Define las pantallas mediante archivos dentro de `mobile/app/`. |
 | Componentes visuales | React Native Paper 5 | Campos, botones, diálogos, indicadores y tema de la interfaz. |
 | Formularios | React Hook Form, Zod y `@hookform/resolvers` | Gestiona el formulario y valida título y descripción. |
-| Datos remotos | TanStack Query 5 | Carga las tareas y refresca la lista después de cada operación. |
-| API | Node.js, Express 5 y TypeScript | Expone el CRUD y valida las solicitudes. |
+| Datos locales | `expo-sqlite` | Guarda tareas, fotos y estado de sincronización en el teléfono. |
+| Sincronización | TanStack Query 5 + cola manual | Lee/escribe primero en SQLite; sincroniza con la API cuando hay red. |
+| Conexión | `@react-native-community/netinfo` | Dispara la sincronización al volver la red. |
+| API | Node.js, Express 5 y TypeScript | Expone autenticación, CRUD y gestión de fotos. |
 | Acceso a datos | Prisma 7 con `@prisma/adapter-pg` | Consulta PostgreSQL y aplica migraciones versionadas. |
-| Base de datos | PostgreSQL 16 en Docker Compose | Persiste las tareas en un volumen nombrado. |
+| Base de datos | PostgreSQL 16 en Docker Compose | Persiste usuarios, refresh tokens y tareas en un volumen nombrado. |
+| Autenticación | Argon2id + JWT | Hash de contraseñas en servidor; access token (15 min) y refresh token rotatorio (7 d). |
+| Fotos | `expo-image-picker` + `expo-file-system` + `multer` | Toma fotos, las guarda localmente y las sincroniza con el servidor. |
+| Ubicación | `expo-location` + BigDataCloud | Obtiene coordenadas y resuelve la ciudad sin clave de API. |
+| Pruebas | `jest-expo` + RNTL en `mobile/`; `vitest` + Supertest en `server/` | Verifican componentes, hooks, servicios y endpoints. |
 | Calidad | ESLint y Prettier | Revisa y mantiene el formato del código. |
 | Control de versiones | Git | Registra los cambios del proyecto. |
 
@@ -75,7 +81,27 @@ En Windows puedes encontrar la IPv4 con `ipconfig`; el teléfono y el computador
 
 `EXPO_PUBLIC_API_URL` se incluye en el bundle de la app: solo debe contener la URL pública de la API, nunca credenciales. Si la cambias con Expo en ejecución, detén Metro con `Ctrl+C` y vuelve a iniciar Expo para cargarla.
 
-### 3. Levantar PostgreSQL
+### 3. Configurar variables de entorno del servidor
+
+Copia `server/.env.example` a `server/.env` y completa al menos:
+
+- `DATABASE_URL`: debe apuntar a la base PostgreSQL de Compose (por defecto `postgresql://eva1:eva1_dev@localhost:5433/tasks?schema=public`).
+- `JWT_SECRET`: secreto aleatorio de **al menos 32 caracteres**. La API se niega a arrancar si falta o es corto.
+- `JWT_ACCESS_EXPIRES_IN`: duración del access token (por ejemplo `15m`).
+- `JWT_REFRESH_EXPIRES_IN`: duración del refresh token (por ejemplo `7d`).
+
+Estos valores son solo para desarrollo local.
+
+### 4. Permisos de la app
+
+Los plugins de Expo solicitan permisos en tiempo de ejecución. En `app.json` ya están configurados los mensajes en español:
+
+- **Cámara** (`expo-image-picker`): necesario para tomar fotos. En web la cámara puede no estar disponible; el teléfono físico es el mejor entorno para probar fotos.
+- **Ubicación** (`expo-location`): necesario para añadir la ciudad a una tarea. El permiso solo se pide si el usuario activa **Añadir ubicación**; si se deniega, la tarea se guarda sin ubicación.
+
+Para probar cámara y GPS se recomienda un teléfono físico con Expo Go; el emulador puede no tener cámara real y la ubicación simulada varía según el entorno.
+
+### 5. Levantar PostgreSQL
 
 Desde la raíz del proyecto:
 
@@ -98,9 +124,9 @@ El servidor usa la misma conexión por defecto en `server/.env.example`:
 postgresql://eva1:eva1_dev@localhost:5433/tasks?schema=public
 ```
 
-Si el puerto local `5433` está ocupado, crea un archivo `.env` en la raíz con, por ejemplo, `POSTGRES_PORT=5434`; luego cambia `5433` por `5434` en `server/.env`. Si cambias el usuario, contraseña o nombre de la base en el `.env` raíz, actualiza también `DATABASE_URL` para que coincida. Estos valores son solo para desarrollo local, no para producción.
+Si el puerto local `5433` está ocupado, crea un archivo `.env` en la raíz con, por ejemplo, `POSTGRES_PORT=5434`; luego cambia `5433` por `5434` en `server/.env`. Si cambias el usuario, contraseña o nombre de la base en el `.env` raíz, actualiza también `DATABASE_URL` para que coincida. Estos valores son solo para desarrollo local.
 
-### 4. Instalar y arrancar la API
+### 6. Instalar y arrancar la API
 
 Abre una terminal en `server/`:
 
@@ -111,7 +137,7 @@ npx prisma migrate deploy
 npm run dev
 ```
 
-`npm ci` instala las versiones fijadas por el lockfile. `prisma generate` genera el cliente desde `prisma/schema.prisma`; `migrate deploy` aplica las migraciones pendientes, incluida la creación de `tasks`. El proceso `npm run dev` deja la API escuchando en `http://localhost:3000` (puerto predeterminado).
+`npm ci` instala las versiones fijadas por el lockfile. `prisma generate` genera el cliente desde `prisma/schema.prisma`; `migrate deploy` aplica las migraciones pendientes. El proceso `npm run dev` deja la API escuchando en `http://localhost:3000` (puerto predeterminado).
 
 Deja esa terminal abierta. En otra terminal, comprueba el estado del servidor desde el computador:
 
@@ -121,7 +147,7 @@ http://localhost:3000/health
 
 La respuesta esperada es `{"status":"ok"}`. La API también puede consultarse con `Invoke-RestMethod http://localhost:3000/health` en PowerShell.
 
-### 5. Instalar y arrancar la app
+### 7. Instalar y arrancar la app
 
 Abre otra terminal en `mobile/`:
 
@@ -136,9 +162,9 @@ Para abrirla en un teléfono, instala Expo Go compatible con SDK 57, escanea el 
 npm run web
 ```
 
-La app carga las tareas de la API. Para comprobar el CRUD, crea una tarea, confirma que el formulario se vacía y la tarea aparece en la lista; edítala y elimínala. Los datos se guardan en PostgreSQL, no solo en la memoria de la app.
+La app guarda las tareas primero en SQLite y las sincroniza con la API cuando hay red. Para comprobar el CRUD, crea una tarea, confirma que el formulario se vacía y la tarea aparece en la lista; edítala y elimínala. Prueba a desconectar la red, crear una tarea, cerrar la app y volver a abrirla: la tarea debe seguir ahí.
 
-### 6. Detener los procesos
+### 8. Detener los procesos
 
 Detén Expo y la API con `Ctrl+C` en sus respectivas terminales. Para detener PostgreSQL sin borrar los datos:
 
@@ -154,43 +180,48 @@ El volumen `pgdata` se conserva. No uses `docker compose down -v` si quieres man
 .
 ├── docker-compose.yml               # PostgreSQL y volumen pgdata
 ├── README.md                         # Instrucciones de instalación y uso
-├── plan.md                           # Plan y registro de las fases
+├── documentacion.md                  # Guía técnica para agentes de IA
+├── plan movil.md                     # Plan y registro de las fases
 ├── docs/
 │   └── images/                       # Capturas de la aplicación
 ├── mobile/                           # App Expo + React Native
 │   ├── app/
-│   │   ├── _layout.tsx               # Providers y navegación raíz
+│   │   ├── _layout.tsx               # Providers, navegación y listener de sync
+│   │   ├── login.tsx                 # Inicio de sesión
+│   │   ├── register.tsx              # Registro
 │   │   ├── index.tsx                 # Lista de tareas
 │   │   └── task/
 │   │       ├── new.tsx               # Alta de tarea
 │   │       └── view/[id].tsx         # Detalle y edición en línea
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── ScreenHeader.tsx       # Encabezado de pantallas
-│   │   │   ├── TaskForm.tsx           # Formulario reutilizable
-│   │   │   └── TaskItem.tsx           # Fila de una tarea
-│   │   ├── hooks/useTasks.tsx         # Consultas y mutaciones de tareas
-│   │   ├── schemas/taskSchema.ts      # Validación del formulario
-│   │   ├── services/api.ts            # Solicitudes HTTP a Express
-│   │   ├── theme.ts                   # Colores y tema de Paper
-│   │   └── types/Task.ts              # Tipo de tarea de la app
+│   │   ├── components/               # TaskForm, TaskItem, TaskPhoto, AuthScreen...
+│   │   ├── context/AuthContext.tsx   # Estado de sesión
+│   │   ├── db/                       # SQLite local y repositorio de tareas
+│   │   ├── hooks/useTasks.tsx        # Consultas y mutaciones locales
+│   │   ├── schemas/                  # Validación con Zod
+│   │   ├── services/                 # API, sync, cámara, ubicación, fotos
+│   │   ├── theme.ts                  # Colores y tema de Paper
+│   │   └── types/Task.ts             # Tipo de tarea de la app
 │   ├── .env.example                   # Plantilla de URL de la API
-│   ├── app.json                       # Configuración Expo
+│   ├── app.json                       # Configuración Expo y permisos
 │   ├── package.json
 │   └── package-lock.json
 └── server/                            # API Express + Prisma
     ├── src/
-    │   ├── index.ts                   # Configura Express, CORS y /health
-    │   ├── routes/tasks.ts             # Rutas /tasks
-    │   ├── controllers/tasksController.ts # Lógica del CRUD
-    │   ├── schemas/taskSchema.ts       # Validación del body
-    │   ├── db/prisma.ts                # Cliente Prisma con adapter pg
-    │   └── generated/prisma/           # Cliente Prisma generado
+    │   ├── index.ts                   # Arranque del servidor
+    │   ├── app.ts                     # App Express sin listen (tests)
+    │   ├── routes/                    # auth.ts, tasks.ts
+    │   ├── controllers/               # authController.ts, tasksController.ts
+    │   ├── schemas/                   # Validación Zod
+    │   ├── services/                  # Password, tokens, fotos
+    │   ├── middleware/requireAuth.ts  # Bearer token
+    │   ├── db/prisma.ts               # Cliente Prisma con adapter pg
+    │   └── generated/prisma/          # Cliente Prisma generado
     ├── prisma/
-    │   ├── schema.prisma               # Modelo Task
-    │   └── migrations/                 # Historial SQL versionado
-    ├── prisma.config.ts                # Configuración de Prisma 7
-    ├── .env.example                    # Plantilla de DATABASE_URL
+    │   ├── schema.prisma              # Modelos User, RefreshToken, Task
+    │   └── migrations/                # Historial SQL versionado
+    ├── prisma.config.ts               # Configuración de Prisma 7
+    ├── .env.example                   # Plantillas de entorno
     ├── package.json
     └── package-lock.json
 ```
@@ -225,27 +256,40 @@ Los archivos `server/.env` y `mobile/.env.local` se crean localmente a partir de
 
 La base URL predeterminada es `http://localhost:3000`. CORS está habilitado para permitir las solicitudes de la app web. El servidor también expone errores de validación como JSON.
 
-| Método | Ruta | Body | Respuesta esperada |
-|---|---|---|---|
-| `GET` | `/health` | — | `200`, `{"status":"ok"}` |
-| `GET` | `/tasks` | — | `200`, arreglo ordenado de más reciente a más antigua; puede ser `[]`. |
-| `GET` | `/tasks/:id` | — | `200` y la tarea; `400` si el ID no es un entero positivo; `404` si no existe. |
-| `POST` | `/tasks` | `{"title":"...","description":"..."}` (`description` opcional) | `201` y la tarea creada; `400` si el body no valida. |
-| `PUT` | `/tasks/:id` | Título obligatorio; descripción opcional | `200` y la tarea actualizada; `400` si el body no valida; `404` si no existe. La descripción omitida o en blanco se guarda como `null`. |
-| `DELETE` | `/tasks/:id` | — | `204` sin body; `404` si no existe. |
+| Método | Ruta | Auth | Body | Respuesta esperada |
+|---|---|---|---|---|
+| `POST` | `/auth/register` | No | `{"email":"...","password":"..."}` | `201` `{ accessToken, refreshToken, user }`; `409` si el correo existe. |
+| `POST` | `/auth/login` | No | `{"email":"...","password":"..."}` | `200` `{ accessToken, refreshToken, user }`; `401` credenciales inválidas. |
+| `POST` | `/auth/logout` | No | `{"refreshToken":"..."}` | `204`; invalida el refresh token. |
+| `POST` | `/auth/refresh` | No | `{"refreshToken":"..."}` | `200` con nuevos tokens; rota el refresh token. |
+| `GET` | `/auth/me` | Sí | — | `200` `{ id, email }`. |
+| `GET` | `/health` | No | — | `200`, `{"status":"ok"}` |
+| `GET` | `/tasks` | Sí | — | `200`, arreglo ordenado de más reciente a más antigua; puede ser `[]`. |
+| `GET` | `/tasks/:id` | Sí | — | `200` y la tarea; `400` si el ID no es un entero positivo; `404` si no existe o es de otro usuario. |
+| `POST` | `/tasks` | Sí | `{"title":"...","description":"...","clientId":"..."}` (`description` y `clientId` opcionales) | `201` y la tarea creada; `400` si el body no valida. |
+| `PUT` | `/tasks/:id` | Sí | Título obligatorio; descripción opcional | `200` y la tarea actualizada; `400` si el body no valida; `404` si no existe. La descripción omitida o en blanco se guarda como `null`. |
+| `DELETE` | `/tasks/:id` | Sí | — | `204` sin body; `404` si no existe. |
+| `POST` | `/tasks/:id/photo` | Sí | `multipart/form-data` campo `photo` | `200` tarea con `hasPhoto: true`; `400` tipo inválido; `413` > 5 MB. |
+| `GET` | `/tasks/:id/photo` | Sí | — | Archivo de imagen; `404` si no hay foto. |
+| `DELETE` | `/tasks/:id/photo` | Sí | — | `204`; `404` si no hay foto. |
 
-Una tarea devuelta por la API tiene esta forma (fechas ISO serializadas en JSON e ID numérico):
+Una tarea devuelta por la API incluye las coordenadas, ciudad, `clientId` y si tiene foto:
 
 ```json
 {
   "id": 1,
   "title": "Preparar evaluación",
   "description": "Revisar los requisitos del proyecto",
+  "latitude": 4.5,
+  "longitude": -74.1,
+  "locationName": "Bogotá",
+  "clientId": "uuid-local",
+  "hasPhoto": false,
   "createdAt": "2026-11-01T12:00:00.000Z",
   "updatedAt": "2026-11-01T12:00:00.000Z"
 }
 ```
-Cuando no se proporciona descripción, la respuesta de la API incluye `"description": null`.
+Cuando no se proporciona descripción, la respuesta de la API incluye `"description": null`. `clientId` es el UUID generado en el teléfono y hace idempotente el `POST /tasks`.
 
 Los errores de validación responden con `400` y un objeto `errors` con los campos que fallaron. Si una tarea no existe, `GET`, `PUT` y `DELETE` responden `404` con `{"error":"Tarea no encontrada"}`; `GET` responde `400` para un ID inválido. Los errores internos responden `500` con `{"error":"Error interno del servidor"}`.
 
@@ -284,18 +328,34 @@ La app solicita confirmación antes de borrar la tarea.
 
 ## Verificación local
 
+### Comandos automáticos
+
 Ejecuta los comandos desde la carpeta correspondiente, después de completar la instalación:
 
 ```bash
 # En mobile/
 npx tsc --noEmit
 npm run lint
+npm test
 
 # En server/
 npm run typecheck
+npm test
 ```
 
-El recorrido manual esperado es: abrir la lista; crear una tarea con título y sin descripción; comprobar que aparece como “Sin descripción”; abrir su tarjeta, tocar el título y luego la descripción para editarlos, probando **Guardar** y **Cancelar**; cancelar y confirmar una eliminación; comprobar la validación del título vacío; y apagar temporalmente la API para probar el error y el reintento. El paquete del servidor no define un script `lint` ni `test`; Jest y React Native Testing Library no están configurados en esta entrega.
+`npm test` en `mobile/` ejecuta `jest-expo` con React Native Testing Library; en `server/` ejecuta `vitest` con Supertest.
+
+### Recorrido manual esperado
+
+- Registro/login/logout: crear cuenta, comprobar que la lista es privada; cerrar sesión y volver a login.
+- Aislamiento entre usuarios: una tarea creada por A no la ve B.
+- Refresco de token: dejar pasar ~15 min (o reiniciar la app) y verificar que sigue autenticado sin volver a escribir credenciales.
+- CRUD: crear, editar desde la tarjeta y eliminar tareas; validar título vacío y de más de 100 caracteres; dejar descripción vacía debe permitir guardar.
+- Foto: tomar/adjuntar foto, ver miniatura en lista, ver foto en detalle, eliminar foto.
+- Ubicación: crear tarea con ubicación y verificar que muestra la ciudad; crear sin ubicación y verificar que no pide permiso.
+- Offline: desconectar la red, crear/editar/eliminar tareas, cerrar y reabrir la app; volver a conectar y comprobar que se sincronizan.
+- Apagar la API temporalmente: la app debe mostrar el error y permitir reintentar sin cerrarse.
+- Persistencia: detener/reiniciar la app y la API manteniendo `pgdata`.
 
 ## Problemas comunes
 
@@ -310,6 +370,11 @@ El recorrido manual esperado es: abrir la lista; crear una tarea con título y s
 | Prisma no alcanza PostgreSQL | El contenedor no está saludable o `DATABASE_URL` no coincide con Compose. | Revisa `docker compose ps`, el estado `healthy` y host, puerto, usuario, contraseña y base en ambos archivos de entorno. |
 | La app muestra “No se pudo conectar con el servidor” | API apagada, URL incorrecta o acceso bloqueado por red/firewall. | Comprueba `/health` desde el mismo destino y usa **Reintentar** en la app. |
 
-## Próximos pasos (fuera del alcance de esta evaluación)
+## Próximos pasos (fuera del alcance actual)
 
-El diseño deja como posibles extensiones futuras el almacenamiento local, la autenticación de usuarios y el consumo de APIs externas. No forman parte de esta entrega y no están implementadas.
+La aplicación ya incluye autenticación de usuarios, fotos, ubicación, almacenamiento local y sincronización. Posibles mejoras futuras:
+
+- Descarga de fotos del servidor en segundo plano para visualización offline completa.
+- Sincronización periódica en segundo plano y manejo de conflictos más sofisticado.
+- Push notifications para recordatorios de tareas.
+- Soporte de etiquetas/categorías y búsqueda local.

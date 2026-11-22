@@ -3,13 +3,14 @@ import { Image, type ImageStyle, type StyleProp } from "react-native";
 import { getAuthToken } from "../services/authStorage";
 import { getTaskPhotoUrl } from "../services/api";
 import { getPhotoUri } from "../services/photoStorage";
+import type { Task } from "../types/Task";
 
 export function TaskPhoto({
-  taskId,
+  task,
   accessibilityLabel,
   style,
 }: {
-  taskId: string;
+  task: Task;
   accessibilityLabel: string;
   style: StyleProp<ImageStyle>;
 }) {
@@ -18,7 +19,7 @@ export function TaskPhoto({
 
   useEffect(() => {
     let active = true;
-    void getPhotoUri(taskId)
+    void getPhotoUri(task.id)
       .then((uri) => {
         if (active) setLocalUri(uri);
       })
@@ -33,27 +34,28 @@ export function TaskPhoto({
     return () => {
       active = false;
     };
-  }, [taskId]);
+  }, [task.id, task.photoUri]);
 
-  if (localUri) {
+  const sourceUri = localUri ?? task.photoUri;
+  if (sourceUri) {
     return (
       <Image
         accessible
         accessibilityLabel={accessibilityLabel}
-        source={{ uri: localUri }}
+        source={{ uri: sourceUri }}
         resizeMode="cover"
         style={style}
       />
     );
   }
 
-  if (!token) return null;
+  if (!token || !task.serverId || !task.hasPhoto) return null;
   return (
     <Image
       accessible
       accessibilityLabel={accessibilityLabel}
       source={{
-        uri: getTaskPhotoUrl(taskId),
+        uri: getTaskPhotoUrl(String(task.serverId)),
         headers: { Authorization: `Bearer ${token}` },
       }}
       resizeMode="cover"

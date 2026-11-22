@@ -13,10 +13,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../../src/components/ScreenHeader";
 import { TaskPhoto } from "../../../src/components/TaskPhoto";
 import { takePhoto as takePhotoFromCamera } from "../../../src/services/camera";
-import {
-  deletePhoto as deleteStoredPhoto,
-  savePhoto,
-} from "../../../src/services/photoStorage";
 import { getCityName, getCurrentCoords } from "../../../src/services/location";
 import { useTask } from "../../../src/hooks/useTasks";
 import { colors, displayFont, radius, shadow } from "../../../src/theme";
@@ -97,7 +93,7 @@ export default function TaskDetailScreen() {
 
   async function confirmDelete() {
     try {
-      await deleteTask(id);
+      await deleteTask();
       router.replace("/");
     } catch {
       setDeleteError(true);
@@ -119,8 +115,7 @@ export default function TaskDetailScreen() {
         return;
       }
 
-      const localPhoto = await savePhoto(id, result.uri);
-      await uploadTaskPhoto(id, localPhoto);
+      await uploadTaskPhoto(result.uri);
     } catch (error) {
       setPhotoError(
         error instanceof Error
@@ -135,8 +130,7 @@ export default function TaskDetailScreen() {
   async function confirmDeletePhoto() {
     setPhotoError("");
     try {
-      await deleteTaskPhoto(id);
-      await deleteStoredPhoto(id);
+      await deleteTaskPhoto();
       setPhotoDialogVisible(false);
     } catch {
       setPhotoError("No se pudo eliminar la foto.");
@@ -363,7 +357,7 @@ export default function TaskDetailScreen() {
               </Text>
               {task.hasPhoto && (
                 <TaskPhoto
-                  taskId={task.id}
+                  task={task}
                   accessibilityLabel={`Foto de ${task.title}`}
                   style={styles.taskPhoto}
                 />
