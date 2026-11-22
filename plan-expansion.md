@@ -277,11 +277,11 @@ Se divide en dos mitades; cerrar y aprobar la 7A antes de empezar la 7B.
 
 ### 7A — Base de datos local como fuente de la interfaz
 
-- [ ] `src/db/database.ts`: abrir la base con `expo-sqlite`, crear la tabla `tasks` (columnas según el modelo móvil objetivo más `user_id`) y manejar versiones de esquema con `PRAGMA user_version`.
-- [ ] `src/db/taskRepository.ts`: `list(userId)`, `get(id)`, `create`, `update`, `markDeleted`, `upsertFromServer`; todas las consultas filtran por `user_id` y excluyen `pending_delete`.
-- [ ] Refactor de `useTasks` / `useTask`: la `queryFn` lee del repositorio; las mutaciones escriben primero en local (`id` = UUID de `expo-crypto`, `syncStatus: pending_*`) y luego invalidan `['tasks']`. **Mantener la interfaz del hook** para no reescribir las pantallas.
-- [ ] La foto vive en el almacenamiento persistente del teléfono; `photoStatus` indica qué falta por subir o borrar.
-- [ ] Estado en la lista: indicador discreto de tareas "pendientes de sincronizar".
+- [x] `src/db/database.ts`: abrir la base con `expo-sqlite`, crear la tabla `tasks` (columnas según el modelo móvil objetivo más `user_id`) y manejar versiones de esquema con `PRAGMA user_version`.
+- [x] `src/db/taskRepository.ts`: `list(userId)`, `get(id)`, `create`, `update`, `markDeleted`, `upsertFromServer`; todas las consultas filtran por `user_id` y excluyen `pending_delete`.
+- [x] Refactor de `useTasks` / `useTask`: la `queryFn` lee del repositorio; las mutaciones escriben primero en local (`id` = UUID de `expo-crypto`, `syncStatus: pending_*`) y luego invalidan `['tasks']`. **Mantener la interfaz del hook** para no reescribir las pantallas.
+- [x] La foto vive en el almacenamiento persistente del teléfono; `photoStatus` indica qué falta por subir o borrar.
+- [x] Estado en la lista: indicador discreto de tareas "pendientes de sincronizar".
 
 **Pruebas:** repositorio con una base SQLite en memoria o el mock de `expo-sqlite`: crear → leer; editar; borrado lógico; aislamiento por `user_id`; una tarea creada sin red aparece en la lista.
 
@@ -289,13 +289,13 @@ Se divide en dos mitades; cerrar y aprobar la 7A antes de empezar la 7B.
 
 ### 7B — Sincronización
 
-- [ ] `src/services/sync.ts` con una cola simple y reglas claras:
+- [x] `src/services/sync.ts` con una cola simple y reglas claras:
   1. **Subir** (en orden de `updatedAt`): `pending_create` → `POST /tasks` con `clientId` (idempotente); `pending_update` → `PUT`; `pending_delete` → `DELETE` (un `404` cuenta como éxito). Luego fotos: `pending_upload` → `POST /tasks/:id/photo`; `pending_delete` → `DELETE /tasks/:id/photo`.
   2. **Bajar:** `GET /tasks` y `upsertFromServer` por `clientId`. Si la tarea local tiene cambios pendientes, **gana lo local**; si está sincronizada, gana el servidor. Tareas sincronizadas que ya no existen en el servidor se eliminan localmente. Las fotos que existen en el servidor y no en el teléfono se descargan al almacenamiento local (con el token).
   3. Un fallo en una tarea no detiene la cola: queda pendiente y se reintenta en el siguiente ciclo.
-- [ ] Disparadores: al abrir la app con sesión, al volver la conexión (`NetInfo`), después de cada mutación local si hay red, y *pull to refresh* manual.
-- [ ] Evitar sincronizaciones simultáneas (un candado simple en memoria).
-- [ ] Limitación conocida que se debe documentar: **el primer inicio de sesión necesita conexión** (la contraseña solo la verifica el servidor); después, la sesión guardada funciona sin red.
+- [x] Disparadores: al abrir la app con sesión, al volver la conexión (`NetInfo`), después de cada mutación local si hay red, y *pull to refresh* manual.
+- [x] Evitar sincronizaciones simultáneas (un candado simple en memoria).
+- [x] Limitación conocida que se debe documentar: **el primer inicio de sesión necesita conexión** (la contraseña solo la verifica el servidor); después, la sesión guardada funciona sin red.
 
 **Pruebas (con `api` mockeada):** crear offline y luego sincronizar → se llama a `POST` una vez y la tarea pasa a `synced` con su `serverId`; un fallo de red deja la tarea pendiente; reintentar no duplica (mismo `clientId`); editar offline → `PUT`; eliminar offline → `DELETE`; la foto pendiente se sube después de crear la tarea; conflicto: gana lo local si hay cambios pendientes.
 
@@ -313,7 +313,7 @@ Se divide en dos mitades; cerrar y aprobar la 7A antes de empezar la 7B.
   - [x] Sección 6 y 7: variables `JWT_SECRET` / `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN`, scripts `test`.
   - [x] Sección 9: reemplazar límites obsoletos y listar riesgos actuales (web/localStorage, revocación de access tokens, rate limit en memoria, CORS).
   - [x] Sección 10: estado del plan.
-- [ ] Actualizar `README.md` (permisos de cámara/ubicación, variables de entorno nuevas, cómo correr las pruebas, nota sobre usar teléfono físico para cámara y GPS, endpoints de autenticación).
+- [x] Actualizar `README.md` (permisos de cámara/ubicación, variables de entorno nuevas, cómo correr las pruebas, nota sobre usar teléfono físico para cámara y GPS, endpoints de autenticación).
 - [x] Revisar que no se versionen secretos ni `server/uploads/`.
 
 **Checkpoint final:** entrega con pruebas verdes y documentación al día. No marcar como ejecutado nada que no se haya corrido.

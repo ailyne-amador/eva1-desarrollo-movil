@@ -19,9 +19,9 @@ Si encuentras contradicciones, sigue este orden:
 
 - Conversación y textos visibles de la app en español; identificadores de código en inglés; comentarios breves en español.
 - Mantener Expo + React Native + TypeScript, Expo Router, React Native Paper, React Hook Form, Zod, TanStack Query, Express, Prisma y PostgreSQL. No cambiar el stack ni añadir dependencias sin autorización de la usuaria.
-- El alcance original es el CRUD de tareas. Autenticación, almacenamiento local/offline y consumo de APIs externas son extensiones futuras, no requisitos actuales.
-. Reutilizar la estructura y los patrones existentes. La app y la API son paquetes separados; no hay `package.json` en la raíz ni workspace configurado.
-- Autenticación y refresh tokens ya están implementados; offline y sincronización son las extensiones futuras pendientes.
+- El alcance original es el CRUD de tareas. Autenticación, almacenamiento local/offline y consumo de APIs externas están implementados.
+- Reutilizar la estructura y los patrones existentes. La app y la API son paquetes separados; no hay `package.json` en la raíz ni workspace configurado.
+- Autenticación, refresh tokens, almacenamiento local y sincronización offline ya están implementados.
 - Leer los archivos afectados antes de editar. Si cambia un contrato de datos, seguir el flujo completo móvil → API → base de datos y actualizar todas las capas necesarias.
 - No leer, copiar ni divulgar valores de `mobile/.env.local` o `server/.env`; usar solo los `.env.example` como plantilla. Nunca incluir secretos en código, documentación o Git.
 - No ejecutar operaciones destructivas sin autorización explícita: por ejemplo `docker compose down -v`, borrar volúmenes o migraciones, `git reset --hard` o hacer force-push. El volumen `pgdata` conserva datos.
@@ -35,13 +35,14 @@ Aplicación móvil/web sencilla para crear, consultar, editar y eliminar tareas.
 |---|---|
 | App | Expo SDK 57, React Native 0.86.3, React 19 y TypeScript estricto. Rutas con Expo Router. |
 | Interfaz | React Native Paper, tema propio, formulario validado con React Hook Form y Zod. Hay ajustes de entrada distintos para móvil y web. |
-| Datos cliente | TanStack Query 5; `useTasks` consulta la lista y ejecuta las mutaciones. |
-| API | Express 5 + TypeScript; rutas `/health` y CRUD `/tasks`. |
-| Persistencia | PostgreSQL 16 en Docker Compose; Prisma 7 con `@prisma/adapter-pg`. |
-| Funcionalidad | CRUD conectado y persistente; la lista se actualiza al completar mutaciones. |
+| Datos cliente | `expo-sqlite` para persistencia local; TanStack Query 5 para cacheo y UI. `useTasks`/`useTask` leen/escriben localmente y disparan sincronización. |
+| Sincronización | Cola manual en `services/sync.ts`: sube cambios, fotos y baja tareas del servidor; usa `@react-native-community/netinfo` para detectar conexión. |
+| API | Express 5 + TypeScript; rutas `/health`, autenticación `/auth` y CRUD `/tasks` con fotos. |
+| Persistencia remota | PostgreSQL 16 en Docker Compose; Prisma 7 con `@prisma/adapter-pg`. |
+| Funcionalidad | CRUD local-first con sincronización; tareas creadas/editadas/eliminadas offline se guardan en SQLite y se sincronizan al volver la red. |
 | Autenticación | Registro/login con Argon2, JWT access token (15m) y refresh token rotatorio (7d). Todas las rutas de tareas requieren Bearer token. |
 | Pruebas | `jest-expo` + React Native Testing Library en `mobile/`; `vitest` + `supertest` en `server/`. Suites pasando. |
-| Progreso | `plan movil.md` marca el CRUD base (fases 0–8) completado. `plan-expansion.md` registra fases 0–6 completadas; fases 7 (offline) y 8 (cierre/docs) pendientes. |
+| Progreso | `plan movil.md` marca el CRUD base (fases 0–8) completado. `plan-expansion.md` registra fases 0–8 completadas, incluyendo almacenamiento local y sincronización offline. |
 
 Las versiones completas y exactas resueltas están en `mobile/package-lock.json` y `server/package-lock.json`. El README registra Node 24.20.0, npm 11.19.0, Git 2.53.0 y Docker Engine/Compose 29.7.2/5.5.1 como versiones usadas durante el desarrollo; son referencia histórica, no mínimos declarados por `package.json`.
 
@@ -71,22 +72,27 @@ Las versiones completas y exactas resueltas están en `mobile/package-lock.json`
 │   │   │   ├── AuthScreen.tsx          # Formulario de login/registro
 │   │   │   ├── ScreenHeader.tsx        # Encabezado y navegación de vuelta
 │   │   │   ├── TaskForm.tsx            # Formulario compartido alta/edición
-│   │   │   ├── TaskItem.tsx            # Fila con acciones accesibles
-│   │   │   └── TaskPhoto.tsx           # Vista previa y acciones de foto
+│   │   │   ├── TaskItem.tsx            # Fila con acciones accesibles e indicador de sync
+│   │   │   └── TaskPhoto.tsx           # Vista previa; prioriza archivo local sobre servidor
 │   │   ├── context/
 │   │   │   └── AuthContext.tsx         # Estado de sesión y logout
-│   │   ├── hooks/useTasks.tsx          # Query y mutaciones de tareas
+│   │   ├── db/
+│   │   │   ├── database.ts             # Apertura y migración de SQLite con PRAGMA user_version
+│   │   │   └── taskRepository.ts       # CRUD local filtrado por user_id
+│   │   ├── hooks/useTasks.tsx          # Query y mutaciones local-first
 │   │   ├── schemas/
 │   │   │   ├── authSchema.ts           # Validación de login/registro
 │   │   │   └── taskSchema.ts           # Validación del formulario móvil
 │   │   ├── services/
-│   │   │   ├── api.ts                  # Cliente HTTP, refresh token e ID
+│   │   │   ├── api.ts                  # Cliente HTTP, refresh token, fotos y tareas del servidor
 │   │   │   ├── authStorage.ts          # Persistencia de tokens
 │   │   │   ├── camera.ts               # Tomar foto con expo-image-picker
 │   │   │   ├── location.ts             # Obtener ciudad vía GPS + BigDataCloud
-│   │   │   └── photoStorage.ts         # Copiar foto a almacenamiento persistente
+│   │   │   ├── photoStorage.ts         # Copiar foto a almacenamiento persistente
+│   │   │   ├── sync.ts                 # Motor de sincronización con cola y reglas de conflicto
+│   │   │   └── uuid.ts                 # Generación de UUIDs locales
 │   │   ├── theme.ts                    # Colores y tipografía de Paper
-│   │   └── types/Task.ts               # Modelo que usa la app
+│   │   └── types/Task.ts               # Modelo local con syncStatus y photoStatus
 │   ├── app.json                        # Configuración Expo, plugins de cámara/ubicación y rutas tipadas
 │   ├── package.json                    # Scripts y dependencias móviles
 │   └── tsconfig.json                   # TypeScript estricto
@@ -127,7 +133,11 @@ Las capturas `inicio_sin_to_do.jpg`, `ver_to_do.jpg`, `nueva_to_do.jpg` y `elimi
 ```mermaid
 flowchart LR
   UI["Pantallas Expo Router"] --> Q["useTasks / useTask · TanStack Query"]
-  Q --> HTTP["services/api.ts · fetch"]
+  Q --> REPO["db/taskRepository.ts · SQLite"]
+  REPO --> DB_LOCAL[("expo-sqlite · tasks")]
+  Q --> SYNC["services/sync.ts"]
+  SYNC --> NET["@react-native-community/netinfo"]
+  SYNC --> HTTP["services/api.ts · fetch"]
   HTTP --> APP["server/src/index.ts · Express"]
   APP --> ROUTER["routes/tasks.ts"]
   ROUTER --> CTRL["controllers/tasksController.ts"]
@@ -137,14 +147,16 @@ flowchart LR
   DB --> PRISMA
   PRISMA --> CTRL
   CTRL --> HTTP
-  HTTP --> Q
+  HTTP --> SYNC
+  SYNC --> REPO
+  REPO --> Q
   Q --> UI
 ```
 
 ### App móvil
 
 - `mobile/app/_layout.tsx` crea un único `QueryClient` (las queries no reintentan automáticamente), carga la fuente Lora y monta `QueryClientProvider`, `SafeAreaProvider`, `PaperProvider` y el `Stack` de Expo Router. La pantalla raíz queda en blanco hasta que carga la fuente.
-- `mobile/app/index.tsx` obtiene la lista mediante `useTasks`; representa carga, error con acción **Reintentar**, lista vacía y cantidad de pendientes. **Nueva tarea** abre `/task/new`; pulsar el contenido de una fila abre su detalle. El borrado de la fila pide confirmación.
+- `mobile/app/index.tsx` obtiene la lista mediante `useTasks`; representa carga, error con acción **Reintentar**, lista vacía, cantidad de pendientes e indicadores de sincronización. **Nueva tarea** abre `/task/new`; pulsar el contenido de una fila abre su detalle. El borrado de la fila pide confirmación. El gesto *pull to refresh* dispara sincronización con el servidor.
 - `mobile/app/task/new.tsx` entrega `addTask` a `TaskForm`. El título es obligatorio y la descripción opcional; tras una creación exitosa el formulario se restablece y vuelve a la lista.
 - `mobile/app/task/view/[id].tsx` consulta la tarea por ID y presenta la tarjeta. Tocar el título o la descripción abre ese campo para sobrescribirlo; **Guardar** aplica el cambio y **Cancelar** lo descarta. No hay ruta ni botón separado de edición.
 - `TaskForm` se usa solo para crear tareas. El formulario de alta limpia sus valores y vuelve a la lista al guardar correctamente.
@@ -152,14 +164,16 @@ flowchart LR
 - En plataformas nativas el formulario de alta usa `TextInput` de Paper. En web usa `TextInput` de React Native con estilos propios; mantener esta bifurcación si se modifica esa pantalla.
 - `theme.ts` centraliza colores y tipografía. El título de pantalla usa Lora; el cuerpo usa la fuente sans del sistema.
 
-### Estado remoto y cliente HTTP
+### Estado local y cliente HTTP
 
-- La clave de lista es `['tasks']`; los detalles usan `['tasks', id]`. `useTasks` expone listado y mutaciones; `useTask` carga una tarea y ofrece sus mutaciones de edición y borrado.
-- Las mutaciones invalidan el prefijo `['tasks']` al tener éxito, refrescando lista y detalles activos. No hay actualización optimista; el `QueryClient` global desactiva reintentos de query.
+- La clave de lista es `['tasks']`; los detalles usan `['tasks', id]`. `useTasks` expone listado y mutaciones; `useTask` carga una tarea y ofrece sus mutaciones de edición y borrado. Las queries leen desde `db/taskRepository.ts` (SQLite); las mutaciones escriben primero en local y luego invalidan el prefijo `['tasks']`.
+- No hay actualización optimista remota; el `QueryClient` global desactiva reintentos automáticos de query. El estado local se muestra inmediatamente y la sincronización se ejecuta en segundo plano.
+- `services/sync.ts` coordina la cola: sube `pending_create`, `pending_update` y `pending_delete` en orden cronológico, luego sincroniza fotos (`pending_upload` / `pending_delete`) y baja las tareas del servidor con `GET /tasks`. Si una tarea local tiene cambios pendientes, gana lo local; si está sincronizada, gana el servidor. Un error en una tarea no detiene las demás.
+- Disparadores de sincronización: apertura con sesión activa, listener de conexión de `NetInfo`, pull-to-refresh manual y tras cada mutación local si hay conexión. Un candado en memoria evita sincronizaciones simultáneas.
 - `services/api.ts` consulta `/tasks` y `/tasks/:id`, elimina barras finales de `EXPO_PUBLIC_API_URL` y convierte el ID numérico a `string`. Ante un `401` intenta renovar el access token con `/auth/refresh`; si falla, cierra sesión. Los `404` se identifican como “Tarea no encontrada”; los demás errores HTTP usan el mensaje genérico.
 - `services/authStorage.ts` guarda access y refresh tokens en `expo-secure-store` (nativo) o `localStorage` (web).
 - `context/AuthContext.tsx` restaura la sesión validando `/auth/me`; distingue errores de red (mantener sesión) de `401` (cerrar sesión).
-- `Task` móvil permite `description: string | null`; Prisma también devuelve `null` cuando no se proporcionó descripción.
+- `Task` móvil usa `id` local UUID, `serverId`, `clientId`, `syncStatus` y `photoStatus`; Prisma devuelve el ID del servidor como `number` y el campo `clientId` para idempotencia. La descripción se permite `string | null`.
 
 ### API y acceso a datos
 
@@ -177,13 +191,17 @@ flowchart LR
 
 | Campo | Tipo en API/DB | Regla actual |
 |---|---|---|
-| `id` | `number` en API y `SERIAL`/`Int` en PostgreSQL; `string` en la app | Autoincremental. El cliente móvil convierte la respuesta a string. |
+| `id` | `number` en API y `SERIAL`/`Int` en PostgreSQL; `string` en la app | Autoincremental. El cliente móvil convierte la respuesta a `serverId` y conserva su propio UUID local en `id`. |
+| `clientId` | `string`, `UUID` en DB | Identificador local generado en el móvil; garantiza idempotencia en `POST /tasks`. Único por usuario. |
 | `title` | `string`, `VARCHAR(100)` | Obligatorio, mínimo 1 y máximo 100 caracteres según Zod. |
 | `description` | `string | null`, `TEXT NULL` | Opcional; la API convierte texto vacío, `null` o ausente en `null`. Sin máximo configurado. |
+| `latitude` / `longitude` | `number | null`, `Float` | Coordenadas GPS cuando el usuario activa ubicación. |
+| `locationName` | `string | null`, `VARCHAR(255)` | Nombre de ciudad devuelto por BigDataCloud; puede ser `null` si falla la geocodificación. |
+| `photoPath` | `string | null`, `VARCHAR` | Ruta relativa del archivo de foto en disco del servidor. |
 | `createdAt` | `DateTime` | `now()`; se guarda como `created_at`. |
 | `updatedAt` | `DateTime` | Se actualiza con `@updatedAt`; se guarda como `updated_at`. |
 
-El esquema Prisma y la migración inicial están en `server/prisma/schema.prisma` y `server/prisma/migrations/20261031025701_init/migration.sql`.
+El esquema Prisma y las migraciones aplicadas están en `server/prisma/schema.prisma`, `server/prisma/migrations/20261031025701_init/migration.sql` (tabla base), `server/prisma/migrations/20261115180931_add_task_photo/migration.sql` (foto), `server/prisma/migrations/20261122012651_add_task_location_name/migration.sql` (ubicación) y la migración que añade `clientId` para idempotencia offline.
 
 ### Esquema Prisma actual
 
@@ -264,20 +282,25 @@ Ejemplo de tarea serializada por Express (la fecha real depende del servidor):
 ```json
 {
   "id": 1,
+  "clientId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "title": "Preparar evaluación",
   "description": "Revisar los requisitos del proyecto",
+  "latitude": -33.4489,
+  "longitude": -70.6693,
+  "locationName": "Santiago",
+  "hasPhoto": true,
   "createdAt": "2026-11-01T12:00:00.000Z",
   "updatedAt": "2026-11-01T12:00:00.000Z"
 }
 ```
-Si no se proporciona descripción, la respuesta incluye `"description": null`.
+Si no se proporciona descripción, la respuesta incluye `"description": null`; los campos de ubicación y foto son opcionales.
 
 ### Validación y diferencias importantes
 
 Los esquemas de móvil y servidor están duplicados; no comparten un paquete:
 
 - `mobile/src/schemas/taskSchema.ts` recorta título y descripción; exige título no vacío y lo limita a 100. La descripción admite vacío o ausencia; el formulario la envía como string vacío.
-- `server/src/schemas/taskSchema.ts` convierte descripción ausente, `null` o vacía (tras recortar espacios) en `null`. El título tiene mínimo 1 y máximo 100, pero no se recorta en el servidor, así que una petición directa con título formado solo por espacios puede pasar.
+- `server/src/schemas/taskSchema.ts` convierte descripción ausente, `null` o vacía (tras recortar espacios) en `null`. El título tiene mínimo 1 y máximo 100, pero no se recorta en el servidor, así que una petición directa con título formado solo por espacios puede pasar. El schema también acepta `clientId` opcional (UUID) para idempotencia desde el móvil.
 - La base acepta `description NULL`; la migración `20261121000000_optional_description` elimina `NOT NULL` sin modificar registros existentes. No hay máximo de descripción.
 - `PUT` requiere título; descripción ausente, `null` o en blanco se guarda como `null`.
 
@@ -403,7 +426,10 @@ npm run typecheck
 - Foto: tomar/adjuntar foto, ver miniatura en lista, ver foto en detalle, eliminar foto.
 - Ubicación: crear tarea con ubicación y verificar que muestra la ciudad; crear sin ubicación y verificar que no pide permiso.
 - Cancelar un borrado y luego confirmar otro; comprobar el estado al borrar la última tarea.
-- Apagar la API temporalmente: la app debe mostrar el error y permitir reintentar sin cerrarse.
+- Apagar la API temporalmente: la app debe mostrar el error y permitir reintentar sin cerrarse; las tareas creadas offline deben aparecer en la lista.
+- Modo offline: crear, editar y eliminar tareas sin red; los indicadores de "Pendiente de subir" deben mostrarse.
+- Sincronización: volver a conectar (o hacer *pull to refresh*) y verificar que las tareas pendientes se sincronizan, el indicador desaparece y aparecen en el servidor.
+- Cerrar sesión y volver a iniciar: la sesión guardada debe restaurarse; los datos locales permanecen a menos que se borren explícitamente.
 - Comprobar persistencia al detener/reiniciar la app/API, manteniendo `pgdata`.
 - Para comprobar la API: probar `/health`, `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`; `GET /tasks`, `GET /tasks/:id` válido/inválido/inexistente, `POST` con y sin descripción, `PUT` con descripción vacía, `DELETE` exitoso e inexistente, y subida de foto válida/inválida.
 
@@ -418,10 +444,11 @@ Trazar el dato por todas las capas afectadas, en lugar de modificar solo la pant
 1. Actualizar la validación de `mobile/src/schemas/taskSchema.ts`; `TaskFormValues` se infiere de ese schema.
 2. Actualizar `server/src/schemas/taskSchema.ts` para que la API aplique reglas compatibles.
 3. Si el dato persiste, actualizar `server/prisma/schema.prisma`, crear la migración SQL correspondiente y regenerar Prisma con `npx prisma generate`.
-4. Actualizar `mobile/src/types/Task.ts` si cambia el recurso retornado; revisar la adaptación en `mobile/src/services/api.ts`.
-5. Actualizar `tasksController.ts` si la entrada/salida o las consultas cambian.
-6. Ajustar `TaskForm`, `TaskItem` y las pantallas que presentan o editan el campo.
-7. Revisar los ejemplos de API en `README.md` y esta guía.
+4. Actualizar `mobile/src/types/Task.ts` si cambia el recurso retornado; revisar la adaptación en `mobile/src/services/api.ts` y en `mobile/src/db/taskRepository.ts`.
+5. Actualizar `mobile/src/db/database.ts` si el esquema SQLite local necesita nuevas columnas.
+6. Actualizar `tasksController.ts` si la entrada/salida o las consultas cambian.
+7. Ajustar `TaskForm`, `TaskItem` y las pantallas que presentan o editan el campo.
+8. Revisar los ejemplos de API en `README.md` y esta guía.
 
 No copies una regla solo al frontend: la API es una frontera independiente y debe validar su propio input.
 
@@ -444,7 +471,9 @@ No copies una regla solo al frontend: la API es una frontera independiente y deb
 
 Estos puntos describen el comportamiento presente; no son autorización para ampliar alcance automáticamente.
 
-- Autenticación con JWT y refresh tokens rotatorios está implementada. Persistencia offline, sincronización y APIs externas (salvo BigDataCloud para la ciudad) siguen sin implementarse.
+- Autenticación con JWT y refresh tokens rotatorios, almacenamiento local SQLite y sincronización offline están implementados. BigDataCloud sigue siendo el único servicio externo.
+- El **primer inicio de sesión requiere conexión**: la contraseña solo se verifica en el servidor. Una vez guardada la sesión, la app funciona sin red mientras los tokens no expiren.
+- Al cerrar sesión se borran los tokens locales, **pero no se borra la base SQLite ni las fotos locales**. Si se necesita aislamiento total en dispositivos compartidos, habría que limpiar explícitamente esos datos.
 - No hay paginación. `GET /tasks/:id` carga el detalle individual; título y descripción se editan en línea, sin una ruta separada.
 - CORS está habilitado con la configuración predeterminada de `cors`; no hay lista de orígenes ni autenticación. Está pensado para desarrollo/uso local, no constituye una configuración de producción.
 - `GET /tasks/:id`, `PUT /tasks/:id` y `DELETE /tasks/:id` validan el ID como entero positivo dentro del rango de `Int` y filtran por `userId`; una tarea ajena responde `404`.
@@ -458,7 +487,7 @@ Estos puntos describen el comportamiento presente; no son autorización para amp
 
 ## 10. Estado del plan y documentación relacionada
 
-El registro de [`plan movil.md`](plan%20movil.md) marca las fases 0–8 del CRUD base como completadas. El plan de expansión en [`plan-expansion.md`](plan-expansion.md) registra las fases 0–6 completadas (infraestructura de pruebas, autenticación, modelo ampliado, GPS, fotos y refresh tokens); las fases 7A/7B (almacenamiento local y sincronización offline) y 8 (cierre y documentación final) están pendientes. El estado real se debe confirmar en el código y scripts, no solo en las casillas.
+El registro de [`plan movil.md`](plan%20movil.md) marca las fases 0–8 del CRUD base como completadas. El plan de expansión en [`plan-expansion.md`](plan-expansion.md) registra las fases 0–8 completadas: infraestructura de pruebas, autenticación, modelo ampliado, GPS, fotos, refresh tokens, almacenamiento local y sincronización offline, y cierre con documentación actualizada. El estado real se debe confirmar en el código y scripts, no solo en las casillas.
 
 Referencias útiles:
 
