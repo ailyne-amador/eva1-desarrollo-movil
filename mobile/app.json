@@ -33,6 +33,13 @@
           "locationWhenInUsePermission": "Permite que To-Do List acceda a tu ubicación mientras usas la app para añadirla a tus tareas."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "To-Do List necesita acceso a la cámara para añadir fotos a tus tareas.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
