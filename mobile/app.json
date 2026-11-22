@@ -39,7 +39,8 @@
           "cameraPermission": "To-Do List necesita acceso a la cámara para añadir fotos a tus tareas.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
