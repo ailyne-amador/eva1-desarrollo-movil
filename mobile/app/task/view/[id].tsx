@@ -11,9 +11,11 @@ import {
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScreenHeader } from "../../../src/components/ScreenHeader";
+import { getCityName, getCurrentCoords } from "../../../src/services/location";
 import { useTask } from "../../../src/hooks/useTasks";
 import { colors, displayFont } from "../../../src/theme";
 import { taskSchema } from "../../../src/schemas/taskSchema";
+import type { TaskFormValues } from "../../../src/schemas/taskSchema";
 
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +37,9 @@ export default function TaskDetailScreen() {
   const [editingValue, setEditingValue] = useState("");
   const [fieldError, setFieldError] = useState<string>();
   const [saveError, setSaveError] = useState(false);
+  const [locationDialogVisible, setLocationDialogVisible] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const isNotFound = error instanceof Error && error.message === "Tarea no encontrada";
   function startEditing(field: "title" | "description", value: string) {
     setEditingField(field);
@@ -83,6 +88,59 @@ export default function TaskDetailScreen() {
       router.replace("/");
     } catch {
       setDeleteError(true);
+    }
+  }
+
+  function closeLocationDialog() {
+    setLocationDialogVisible(false);
+    setLocationError("");
+  }
+
+  async function addLocation() {
+    if (!task) return;
+    setLocationError("");
+    setIsLoadingLocation(true);
+    try {
+      const result = await getCurrentCoords();
+      if (result.status === "denied") {
+        setLocationError("Se necesita permiso de ubicación.");
+        return;
+      }
+      if (result.status === "unavailable") {
+        setLocationError("No se pudo obtener la ubicación.");
+        return;
+      }
+      const locationName = await getCityName(result.latitude, result.longitude);
+      const values: TaskFormValues = {
+        title: task.title,
+        description: task.description ?? "",
+        latitude: result.latitude,
+        longitude: result.longitude,
+        locationName,
+      };
+      await updateTask(values);
+    } catch {
+      setLocationError("No se pudo guardar la ubicación.");
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }
+
+  async function confirmRemoveLocation() {
+    if (!task) return;
+    setLocationError("");
+    try {
+      const values: TaskFormValues = {
+        title: task.title,
+        description: task.description ?? "",
+        latitude: null,
+        longitude: null,
+        locationName: null,
+      };
+      await updateTask(values);
+      setLocationDialogVisible(false);
+    } catch {
+      setLocationError("No se pudo eliminar la ubicación.");
     }
   }
 
@@ -208,10 +266,38 @@ export default function TaskDetailScreen() {
                   >
                     Ver en el mapa
                   </Button>
+                  <Button
+                    compact
+                    mode="text"
+                    textColor={colors.error}
+                    onPress={() => {
+                      setLocationError("");
+                      setLocationDialogVisible(true);
+                    }}
+                    disabled={isLoadingLocation || editingField !== null}
+                  >
+                    Eliminar ubicación
+                  </Button>
                 </>
               ) : (
-                <Text variant="bodyMedium" style={styles.locationText}>
-                  Sin ubicación
+                <>
+                  <Text variant="bodyMedium" style={styles.locationText}>
+                    Sin ubicación
+                  </Text>
+                  <Button
+                    compact
+                    mode="text"
+                    onPress={() => void addLocation()}
+                    loading={isLoadingLocation}
+                    disabled={isLoadingLocation || editingField !== null}
+                  >
+                    Añadir ubicación
+                  </Button>
+                </>
+              )}
+              {locationError && (
+                <Text variant="bodySmall" style={styles.inlineError}>
+                  {locationError}
                 </Text>
               )}
             </View>
@@ -243,7 +329,7 @@ export default function TaskDetailScreen() {
           </View>
           {editingField === null && (
             <Text variant="bodySmall" style={styles.hint}>
-              Toca el título o la descripción para editar.
+              Toca el título o la descripción para editar. Usa los botones de ubicación para añadirla o quitarla.
             </Text>
           )}
         </ScrollView>
@@ -268,6 +354,26 @@ export default function TaskDetailScreen() {
               textColor={colors.error}
               loading={isDeletingTask}
               disabled={isDeletingTask}
+            >
+              Eliminar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+        <Dialog visible={locationDialogVisible} onDismiss={closeLocationDialog}>
+          <Dialog.Title>Eliminar ubicación</Dialog.Title>
+          <Dialog.Content>
+            <Text>¿Quieres eliminar la ubicación de esta tarea?</Text>
+            {locationError && (
+              <Text style={styles.deleteError}>{locationError}</Text>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeLocationDialog}>Cancelar</Button>
+            <Button
+              onPress={() => void confirmRemoveLocation()}
+              textColor={colors.error}
+              loading={isLoadingLocation}
+              disabled={isLoadingLocation}
             >
               Eliminar
             </Button>
