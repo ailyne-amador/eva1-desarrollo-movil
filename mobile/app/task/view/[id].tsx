@@ -19,7 +19,7 @@ import {
 } from "../../../src/services/photoStorage";
 import { getCityName, getCurrentCoords } from "../../../src/services/location";
 import { useTask } from "../../../src/hooks/useTasks";
-import { colors, displayFont } from "../../../src/theme";
+import { colors, displayFont, radius, shadow } from "../../../src/theme";
 import { taskSchema } from "../../../src/schemas/taskSchema";
 import type { TaskFormValues } from "../../../src/schemas/taskSchema";
 
@@ -232,8 +232,9 @@ export default function TaskDetailScreen() {
                   }}
                   maxLength={100}
                   error={Boolean(fieldError)}
-                  mode="flat"
+                  mode="outlined"
                   style={styles.titleInput}
+                  outlineStyle={styles.inputOutline}
                 />
               ) : (
                 <Pressable
@@ -248,7 +249,7 @@ export default function TaskDetailScreen() {
               )}
               <Button
                 compact
-                mode="text"
+                mode="outlined"
                 textColor={colors.error}
                 onPress={() => {
                   setDeleteError(false);
@@ -274,8 +275,9 @@ export default function TaskDetailScreen() {
                 multiline
                 numberOfLines={4}
                 error={Boolean(fieldError)}
-                mode="flat"
+                mode="outlined"
                 style={styles.descriptionInput}
+                outlineStyle={styles.inputOutline}
               />
             ) : (
               <Pressable
@@ -307,29 +309,31 @@ export default function TaskDetailScreen() {
                   <Text variant="bodyMedium" style={styles.locationText}>
                     Ubicación: {task.locationName?.trim() || "Ciudad no disponible"}
                   </Text>
-                  <Button
-                    compact
-                    mode="text"
-                    onPress={() =>
-                      void Linking.openURL(
-                        `https://www.google.com/maps/search/?api=1&query=${task.latitude},${task.longitude}`,
-                      )
-                    }
-                  >
-                    Ver en el mapa
-                  </Button>
-                  <Button
-                    compact
-                    mode="text"
-                    textColor={colors.error}
-                    onPress={() => {
-                      setLocationError("");
-                      setLocationDialogVisible(true);
-                    }}
-                    disabled={isLoadingLocation || editingField !== null}
-                  >
-                    Eliminar ubicación
-                  </Button>
+                  <View style={styles.locationActions}>
+                    <Button
+                      mode="outlined"
+                      compact
+                      onPress={() =>
+                        void Linking.openURL(
+                          `https://www.google.com/maps/search/?api=1&query=${task.latitude},${task.longitude}`,
+                        )
+                      }
+                    >
+                      Ver en el mapa
+                    </Button>
+                    <Button
+                      compact
+                      mode="text"
+                      textColor={colors.error}
+                      onPress={() => {
+                        setLocationError("");
+                        setLocationDialogVisible(true);
+                      }}
+                      disabled={isLoadingLocation || editingField !== null}
+                    >
+                      Eliminar ubicación
+                    </Button>
+                  </View>
                 </>
               ) : (
                 <>
@@ -338,7 +342,7 @@ export default function TaskDetailScreen() {
                   </Text>
                   <Button
                     compact
-                    mode="text"
+                    mode="outlined"
                     onPress={() => void addLocation()}
                     loading={isLoadingLocation}
                     disabled={isLoadingLocation || editingField !== null}
@@ -354,6 +358,9 @@ export default function TaskDetailScreen() {
               )}
             </View>
             <View style={styles.photoSection}>
+              <Text variant="labelMedium" style={styles.sectionLabel}>
+                Foto
+              </Text>
               {task.hasPhoto && (
                 <TaskPhoto
                   taskId={task.id}
@@ -402,10 +409,15 @@ export default function TaskDetailScreen() {
                   onPress={() => void saveField()}
                   loading={isUpdatingTask}
                   disabled={isUpdatingTask}
+                  buttonColor={colors.accent}
                 >
                   Guardar
                 </Button>
-                <Button onPress={cancelEditing} disabled={isUpdatingTask}>
+                <Button
+                  mode="outlined"
+                  onPress={cancelEditing}
+                  disabled={isUpdatingTask}
+                >
                   Cancelar
                 </Button>
               </View>
@@ -521,11 +533,11 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     gap: 18,
     padding: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.teal,
-    borderRadius: 8,
+    ...shadow.md,
   },
   cardHeader: {
     flexDirection: "row",
@@ -535,32 +547,39 @@ const styles = StyleSheet.create({
   titleField: {
     flex: 1,
     minWidth: 0,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   descriptionField: {
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   pressed: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   titleInput: {
     flex: 1,
-    backgroundColor: "transparent",
+    backgroundColor: colors.surface,
   },
   descriptionInput: {
-    backgroundColor: "transparent",
+    backgroundColor: colors.surface,
+  },
+  inputOutline: {
+    borderRadius: radius.md,
+    borderWidth: 1,
   },
   deleteAction: {
     alignSelf: "flex-start",
+    borderRadius: radius.md,
   },
   hint: {
     width: "100%",
     maxWidth: 640,
     color: colors.muted,
+    textAlign: "center",
   },
   editActions: {
-    alignItems: "flex-start",
-    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   inlineError: {
     color: colors.error,
@@ -584,9 +603,19 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     lineHeight: 26,
   },
+  sectionLabel: {
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   locationDetails: {
     alignItems: "flex-start",
-    gap: 4,
+    gap: 8,
+  },
+  locationActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   photoSection: {
     gap: 8,
@@ -594,10 +623,10 @@ const styles = StyleSheet.create({
   taskPhoto: {
     width: "100%",
     height: 240,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   locationText: {
-    color: colors.muted,
+    color: colors.ink,
   },
   deleteError: {
     marginTop: 8,

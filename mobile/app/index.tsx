@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { TaskItem } from "../src/components/TaskItem";
 import { useTasks } from "../src/hooks/useTasks";
 import { useAuth } from "../src/context/AuthContext";
-import { colors, displayFont } from "../src/theme";
+import { colors, displayFont, radius, shadow } from "../src/theme";
 import type { Task } from "../src/types/Task";
 
 export default function Index() {
@@ -63,7 +63,12 @@ export default function Index() {
             </Text>
           )}
         </View>
-        <Button compact onPress={() => void signOut()}>
+        <Button
+          mode="outlined"
+          compact
+          onPress={() => void signOut()}
+          style={styles.logoutButton}
+        >
           Cerrar sesión
         </Button>
       </View>
@@ -122,7 +127,7 @@ export default function Index() {
         onPress={() => router.push("/task/new")}
       >
         <Text variant="titleMedium" style={styles.fabText}>
-          + Nueva tarea
+          +  Nueva tarea
         </Text>
       </Pressable>
       <Portal>
@@ -181,6 +186,9 @@ const styles = StyleSheet.create({
   count: {
     color: colors.muted,
   },
+  logoutButton: {
+    borderRadius: radius.md,
+  },
   status: {
     alignItems: "center",
     gap: 8,
@@ -197,33 +205,36 @@ const styles = StyleSheet.create({
   list: {
     flexGrow: 1,
     paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 104,
+    gap: 10,
   },
   emptyList: {
     justifyContent: "center",
   },
   empty: {
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
   emptyText: {
     color: colors.ink,
   },
   emptyHint: {
     color: colors.muted,
+    textAlign: "center",
   },
   separator: {
-    height: 1,
-    backgroundColor: colors.line,
+    height: 8,
   },
   fab: {
     position: "absolute",
     right: 20,
     bottom: 24,
-    backgroundColor: colors.teal,
-    borderRadius: 28,
-    paddingHorizontal: 22,
-    paddingVertical: 16,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: radius.xl,
+    ...shadow.md,
   },
   fabPressed: {
     opacity: 0.85,

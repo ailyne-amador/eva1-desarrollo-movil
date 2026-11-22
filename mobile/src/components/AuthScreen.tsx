@@ -14,7 +14,7 @@ import { Button, Text, TextInput as PaperTextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 import { authSchema, type AuthFormValues } from "../schemas/authSchema";
-import { colors, displayFont } from "../theme";
+import { colors, displayFont, radius } from "../theme";
 
 type AuthMode = "login" | "register";
 
@@ -51,7 +51,7 @@ function AuthField({
         <PaperTextInput
           accessibilityLabel={label}
           label={label}
-          mode="flat"
+          mode="outlined"
           value={value}
           onChangeText={onChangeText}
           onBlur={onBlur}
@@ -61,7 +61,8 @@ function AuthField({
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry}
           error={Boolean(error)}
-          style={styles.flatInput}
+          style={styles.input}
+          outlineStyle={styles.inputOutline}
         />
         {errorText}
       </View>
@@ -86,7 +87,7 @@ function AuthField({
         placeholderTextColor={colors.muted}
         style={[
           styles.webInput,
-          { borderBottomColor: error ? colors.error : colors.line },
+          { borderColor: error ? colors.error : colors.line },
         ]}
       />
       {errorText}
@@ -187,6 +188,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
           disabled={formState.isSubmitting}
           style={styles.submit}
           contentStyle={styles.submitContent}
+          buttonColor={colors.accent}
         >
           {formState.isSubmitting ? "Procesando..." : submitLabel}
         </Button>
@@ -234,8 +236,12 @@ const styles = StyleSheet.create({
   field: {
     gap: 6,
   },
-  flatInput: {
-    backgroundColor: "transparent",
+  input: {
+    backgroundColor: colors.surface,
+  },
+  inputOutline: {
+    borderRadius: radius.md,
+    borderWidth: 1,
   },
   errorText: {
     color: colors.error,
@@ -245,10 +251,13 @@ const styles = StyleSheet.create({
   },
   webInput: {
     minHeight: 48,
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: radius.md,
     fontSize: 16,
     color: colors.ink,
     paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surface,
     ...({ outlineStyle: "none" } as object),
   },
   visibilityToggle: {
@@ -256,11 +265,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   linkText: {
-    color: colors.teal,
+    color: colors.muted,
   },
   submit: {
     marginTop: 12,
-    borderRadius: 28,
+    borderRadius: radius.md,
   },
   submitContent: {
     paddingVertical: 8,

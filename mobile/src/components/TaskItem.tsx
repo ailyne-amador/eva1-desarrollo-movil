@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { TaskPhoto } from "./TaskPhoto";
 import { Text } from "react-native-paper";
-import { colors } from "../theme";
+import { colors, radius, shadow } from "../theme";
 import type { Task } from "../types/Task";
 
 type TaskItemProps = {
@@ -40,7 +40,7 @@ export function TaskItem({ task, onView, onDelete }: TaskItemProps) {
         style={({ pressed }) => [styles.delete, pressed && styles.pressed]}
         hitSlop={8}
       >
-        <Text variant="bodyMedium" style={styles.deleteText}>
+        <Text variant="bodySmall" style={styles.deleteText}>
           Eliminar
         </Text>
       </Pressable>
@@ -53,19 +53,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 16,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    ...shadow.sm,
   },
   content: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
   thumbnail: {
     width: 56,
     height: 56,
-    borderRadius: 6,
+    borderRadius: radius.md,
   },
   pressed: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   title: {
     color: colors.ink,
@@ -76,8 +81,9 @@ const styles = StyleSheet.create({
   },
   delete: {
     paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   deleteText: {
-    color: colors.error,
+    color: colors.muted,
   },
 });
