@@ -1,11 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { hashPassword, verifyPassword } from "./services/password";
-import { assertJwtConfig, signToken, verifyToken } from "./services/token";
+import {
+  assertJwtConfig,
+  generateRefreshToken,
+  hashRefreshToken,
+  signAccessToken,
+  verifyAccessToken,
+} from "./services/token";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     user: { create: vi.fn(), findUnique: vi.fn() },
+    refreshToken: { create: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
+    $transaction: vi.fn(),
     task: {},
   },
 }));
@@ -49,14 +57,24 @@ describe("JWT configuration", () => {
 
     process.env.JWT_SECRET = testSecret;
     expect(assertJwtConfig).not.toThrow();
-    expect(verifyToken(signToken(7))).toEqual({ userId: 7 });
-    expect(verifyToken("invalid-token")).toBeNull();
+    expect(verifyAccessToken(signAccessToken(7))).toEqual({ userId: 7 });
+    expect(verifyAccessToken("invalid-token")).toBeNull();
+  });
+});
+
+describe("refresh token helpers", () => {
+  it("generates unique refresh tokens and hashes them with SHA-256", () => {
+    const first = generateRefreshToken();
+    const second = generateRefreshToken();
+    expect(first).not.toBe(second);
+    expect(hashRefreshToken(first)).toHaveLength(64);
   });
 });
 
 describe("POST /auth/register", () => {
-  it("normalizes email and never returns the password hash", async () => {
+  it("normalizes email and returns access and refresh tokens", async () => {
     prismaMock.user.create.mockResolvedValueOnce({ id: 1, email: "user@example.com" });
+    prismaMock.refreshToken.create.mockResolvedValueOnce({ id: 1 });
 
     const response = await request(app)
       .post("/auth/register")
@@ -65,10 +83,18 @@ describe("POST /auth/register", () => {
     expect(response.status).toBe(201);
     expect(response.body.user).toEqual({ id: 1, email: "user@example.com" });
     expect(response.body).not.toHaveProperty("passwordHash");
-    expect(verifyToken(response.body.token)).toEqual({ userId: 1 });
+    expect(verifyAccessToken(response.body.accessToken)).toEqual({ userId: 1 });
+    expect(typeof response.body.refreshToken).toBe("string");
     expect(prismaMock.user.create).toHaveBeenCalledWith({
       data: { email: "user@example.com", passwordHash: expect.stringMatching(/^\$argon2id\$/) },
       select: { id: true, email: true },
+    });
+    expect(prismaMock.refreshToken.create).toHaveBeenCalledWith({
+      data: {
+        tokenHash: expect.any(String),
+        userId: 1,
+        expiresAt: expect.any(Date),
+      },
     });
   });
 
@@ -95,12 +121,13 @@ describe("POST /auth/register", () => {
 });
 
 describe("POST /auth/login", () => {
-  it("returns a token for valid credentials", async () => {
+  it("returns tokens for valid credentials", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       id: 2,
       email: "user@example.com",
       passwordHash,
     });
+    prismaMock.refreshToken.create.mockResolvedValueOnce({ id: 1 });
 
     const response = await request(app)
       .post("/auth/login")
@@ -108,7 +135,8 @@ describe("POST /auth/login", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.user).toEqual({ id: 2, email: "user@example.com" });
-    expect(verifyToken(response.body.token)).toEqual({ userId: 2 });
+    expect(verifyAccessToken(response.body.accessToken)).toEqual({ userId: 2 });
+    expect(typeof response.body.refreshToken).toBe("string");
   });
 
   it("uses the same credentials error for an unknown email and a wrong password", async () => {
@@ -130,13 +158,72 @@ describe("POST /auth/login", () => {
   });
 });
 
+describe("POST /auth/refresh", () => {
+  it("rotates a valid refresh token and returns new tokens", async () => {
+    const oldToken = generateRefreshToken();
+    const oldHash = hashRefreshToken(oldToken);
+    const newRefreshToken = generateRefreshToken();
+    prismaMock.refreshToken.findUnique.mockResolvedValueOnce({
+      id: 5,
+      tokenHash: oldHash,
+      userId: 3,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      user: { id: 3, email: "user@example.com" },
+    });
+    prismaMock.$transaction.mockResolvedValueOnce([
+      signAccessToken(3),
+      newRefreshToken,
+    ]);
+
+    const response = await request(app).post("/auth/refresh").send({ refreshToken: oldToken });
+
+    expect(response.status).toBe(200);
+    expect(verifyAccessToken(response.body.accessToken)).toEqual({ userId: 3 });
+    expect(response.body.refreshToken).toBe(newRefreshToken);
+  });
+
+  it("rejects an invalid refresh token", async () => {
+    prismaMock.refreshToken.findUnique.mockResolvedValueOnce(null);
+
+    const response = await request(app)
+      .post("/auth/refresh")
+      .send({ refreshToken: generateRefreshToken() });
+
+    expect(response.status).toBe(401);
+  });
+});
+
+describe("POST /auth/logout", () => {
+  it("deletes the refresh token and responds with 204", async () => {
+    const token = generateRefreshToken();
+    prismaMock.refreshToken.delete.mockResolvedValueOnce({ id: 1 });
+
+    const response = await request(app).post("/auth/logout").send({ refreshToken: token });
+
+    expect(response.status).toBe(204);
+    expect(prismaMock.refreshToken.delete).toHaveBeenCalledWith({
+      where: { tokenHash: hashRefreshToken(token) },
+    });
+  });
+
+  it("responds with 204 even if the token does not exist", async () => {
+    prismaMock.refreshToken.delete.mockRejectedValueOnce(new Error("not found"));
+
+    const response = await request(app)
+      .post("/auth/logout")
+      .send({ refreshToken: generateRefreshToken() });
+
+    expect(response.status).toBe(204);
+  });
+});
+
 describe("GET /auth/me", () => {
   it("returns the authenticated user", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: 7, email: "user@example.com" });
 
     const response = await request(app)
       .get("/auth/me")
-      .set("Authorization", `Bearer ${signToken(7)}`);
+      .set("Authorization", `Bearer ${signAccessToken(7)}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ id: 7, email: "user@example.com" });

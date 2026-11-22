@@ -1,7 +1,12 @@
-import { getAuthToken } from "./authStorage";
+import { getAuthToken, getRefreshToken } from "./authStorage";
 import { uploadTaskPhoto } from "./api";
 
-jest.mock("./authStorage", () => ({ getAuthToken: jest.fn() }));
+jest.mock("./authStorage", () => ({
+  getAuthToken: jest.fn(),
+  getRefreshToken: jest.fn(),
+  saveAuthToken: jest.fn(),
+  saveRefreshToken: jest.fn(),
+}));
 
 const mockFetch = jest.fn();
 const originalApiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -11,6 +16,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.EXPO_PUBLIC_API_URL = "http://localhost:3000";
   jest.mocked(getAuthToken).mockResolvedValue("test-token");
+  jest.mocked(getRefreshToken).mockResolvedValue(null);
   mockFetch.mockResolvedValue({ ok: true, status: 200 } as Response);
   globalThis.fetch = mockFetch as typeof fetch;
 });

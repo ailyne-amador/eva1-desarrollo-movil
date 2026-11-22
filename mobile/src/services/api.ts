@@ -1,6 +1,13 @@
-import { getAuthToken } from "./authStorage";
+import {
+  clearAuthToken,
+  getAuthToken,
+  getRefreshToken,
+  saveAuthToken,
+  saveRefreshToken,
+} from "./authStorage";
 import type { TaskFormValues } from "../schemas/taskSchema";
 import type { Task } from "../types/Task";
+
 type ApiTask = Omit<Task, "id"> & { id: number };
 type RequestOptions = { authenticated?: boolean };
 type UnauthorizedHandler = () => void | Promise<void>;
@@ -12,7 +19,52 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   unauthorizedHandler = handler ?? undefined;
 }
 
-async function request(
+export class UnauthorizedError extends Error {
+  constructor(message = "La sesión expiró. Inicia sesión de nuevo.") {
+    super(message);
+    this.name = "UnauthorizedError";
+  }
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function performRefresh(): Promise<boolean> {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "");
+  if (!apiUrl) return false;
+
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) return false;
+
+  try {
+    const response = await fetch(`${apiUrl}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as {
+      accessToken: string;
+      refreshToken: string;
+    };
+    await Promise.all([
+      saveAuthToken(data.accessToken),
+      saveRefreshToken(data.refreshToken),
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function refreshTokens(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = performRefresh().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
+async function doRequest(
   path: string,
   init?: RequestInit,
   { authenticated = true }: RequestOptions = {},
@@ -26,11 +78,25 @@ async function request(
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${apiUrl}${path}`, { ...init, headers });
-  if (response.status === 401 && authenticated) {
+  return fetch(`${apiUrl}${path}`, { ...init, headers });
+}
+
+async function request(
+  path: string,
+  init?: RequestInit,
+  options: RequestOptions = {},
+): Promise<Response> {
+  const response = await doRequest(path, init, options);
+
+  if (response.status === 401 && options.authenticated !== false) {
+    const refreshed = await refreshTokens();
+    if (refreshed) {
+      return doRequest(path, init, options);
+    }
     await unauthorizedHandler?.();
-    throw new Error("La sesión expiró. Inicia sesión de nuevo.");
+    throw new UnauthorizedError();
   }
+
   if (response.status === 404) throw new Error("Tarea no encontrada");
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
@@ -44,7 +110,7 @@ async function request(
 }
 
 type AuthUser = { id: number; email: string };
-type AuthResponse = { token: string; user: AuthUser };
+type AuthResponse = { accessToken: string; refreshToken: string; user: AuthUser };
 
 async function authenticate(
   path: "/auth/login" | "/auth/register",
@@ -69,6 +135,24 @@ export function login(email: string, password: string) {
 
 export function register(email: string, password: string) {
   return authenticate("/auth/register", email, password);
+}
+
+export async function logoutFromServer(): Promise<void> {
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) return;
+  try {
+    await request(
+      "/auth/logout",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      },
+      { authenticated: false },
+    );
+  } catch {
+    // Ignorar errores de red; el token local ya se borrará.
+  }
 }
 
 export async function getCurrentUser(): Promise<AuthUser> {

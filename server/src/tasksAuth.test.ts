@@ -3,7 +3,7 @@ import { basename } from "node:path";
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { signToken } from "./services/token";
+import { signAccessToken } from "./services/token";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -37,7 +37,7 @@ afterAll(() => {
 beforeEach(() => vi.resetAllMocks());
 
 function authHeader(userId: number): string {
-  return `Bearer ${signToken(userId)}`;
+  return `Bearer ${signAccessToken(userId)}`;
 }
 const pngBytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/c3sAAAAASUVORK5CYII=", "base64");
 

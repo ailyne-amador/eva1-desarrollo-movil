@@ -8,8 +8,10 @@ import {
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  UnauthorizedError,
   getCurrentUser,
   login as loginRequest,
+  logoutFromServer,
   register as registerRequest,
   setUnauthorizedHandler,
 } from "../services/api";
@@ -17,6 +19,7 @@ import {
   clearAuthToken,
   getAuthToken,
   saveAuthToken,
+  saveRefreshToken,
 } from "../services/authStorage";
 
 type AuthStatus = "loading" | "signedOut" | "signedIn";
@@ -36,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
+      await logoutFromServer();
       await clearAuthToken();
     } finally {
       queryClient.clear();
@@ -45,8 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      const { token } = await loginRequest(email, password);
-      await saveAuthToken(token);
+      const { accessToken, refreshToken } = await loginRequest(email, password);
+      await Promise.all([
+        saveAuthToken(accessToken),
+        saveRefreshToken(refreshToken),
+      ]);
       queryClient.clear();
       setStatus("signedIn");
     },
@@ -55,8 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(
     async (email: string, password: string) => {
-      const { token } = await registerRequest(email, password);
-      await saveAuthToken(token);
+      const { accessToken, refreshToken } = await registerRequest(
+        email,
+        password,
+      );
+      await Promise.all([
+        saveAuthToken(accessToken),
+        saveRefreshToken(refreshToken),
+      ]);
       queryClient.clear();
       setStatus("signedIn");
     },
@@ -78,7 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await getCurrentUser();
           if (active) setStatus("signedIn");
-        } catch {
+        } catch (error) {
+          if (error instanceof UnauthorizedError) {
+            // El handler global de 401 ya limpió token y caché; solo sincronizamos el estado.
+            if (active) setStatus("signedOut");
+            return;
+          }
           const savedToken = await getAuthToken();
           if (active) setStatus(savedToken ? "signedIn" : "signedOut");
         }

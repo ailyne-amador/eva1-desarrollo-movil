@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { verifyToken } from "../services/token";
+import { verifyAccessToken } from "../services/token";
 
 declare global {
   namespace Express {
@@ -11,7 +11,7 @@ declare global {
 
 export const requireAuth: RequestHandler = (req, res, next) => {
   const match = /^Bearer\s+(\S+)$/i.exec(req.get("authorization") ?? "");
-  const session = match ? verifyToken(match[1]) : null;
+  const session = match ? verifyAccessToken(match[1]) : null;
   if (!session) {
     res.status(401).json({ error: "Token de autenticación inválido o ausente" });
     return;
