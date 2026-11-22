@@ -226,27 +226,27 @@ Primero las herramientas, para que cada fase siguiente nazca con sus pruebas.
 ## Fase 6 — Fotos
 
 **Servidor**
-- [ ] `POST /tasks/:id/photo`, `GET /tasks/:id/photo`, `DELETE /tasks/:id/photo` según el contrato; `multer` con `memoryStorage` o `diskStorage`, límite de 5 MB y lista blanca de tipos MIME; nombre de archivo generado por el servidor; comprobar la propiedad de la tarea antes de escribir en disco.
-- [ ] Al borrar una tarea, borrar también su archivo de foto. Si el archivo ya no existe, no fallar.
-- [ ] `hasPhoto` en las respuestas.
+- [x] `POST /tasks/:id/photo`, `GET /tasks/:id/photo`, `DELETE /tasks/:id/photo` según el contrato; `multer` con `memoryStorage` o `diskStorage`, límite de 5 MB y lista blanca de tipos MIME; nombre de archivo generado por el servidor; comprobar la propiedad de la tarea antes de escribir en disco.
+- [x] Al borrar una tarea, borrar también su archivo de foto. Si el archivo ya no existe, no fallar.
+- [x] `hasPhoto` en las respuestas.
 
 **Móvil**
-- [ ] Plugin `expo-image-picker` en `app.json` con `cameraPermission` en español (y `microphonePermission: false`, no se graban videos).
-- [ ] `src/services/camera.ts` → `takePhoto()` devuelve un resultado tipado:
+- [x] Plugin `expo-image-picker` en `app.json` con `cameraPermission` en español (y `microphonePermission: false`, no se graban videos).
+- [x] `src/services/camera.ts` → `takePhoto()` devuelve un resultado tipado:
   - `{ status: 'ok', uri }` · `{ status: 'cancelled' }` · `{ status: 'denied' }` · `{ status: 'unavailable' }` (por ejemplo, dispositivo sin cámara)
   - Usa `launchCameraAsync` con `mediaTypes: ['images']` y `quality` moderada (~0.7) para reducir el tamaño. Pide permiso con la API de permisos de la librería antes de abrir la cámara.
-- [ ] `src/services/photoStorage.ts`: copiar la foto al directorio persistente (`expo-file-system`, API vigente en SDK 57) con nombre `<taskId>.jpg`; funciones `savePhoto`, `deletePhoto`.
-- [ ] `TaskForm`: botón **Tomar foto**, vista previa y botón para quitarla antes de guardar.
-- [ ] `TaskItem` (lista): miniatura cuando la tarea tiene foto, con `accessibilityLabel`.
-- [ ] `task/view/[id].tsx` (tarjeta de la tarea): foto grande y botón **Eliminar foto** con confirmación (mismo patrón de confirmación que el borrado de tareas). Si no hay foto, botón **Tomar foto** para adjuntar una. Tras eliminar, la miniatura desaparece de la lista (invalidar `['tasks']`).
-- [ ] Mostrar una foto servida por la API requiere enviar el token: `Image` nativo admite `source={{ uri, headers }}`. En web esto no es fiable: tratar la web como mejor esfuerzo para fotos y documentarlo. (Con la fase 7 la app mostrará siempre el archivo local, y este punto casi desaparece.)
+- [x] `src/services/photoStorage.ts`: copiar la foto al directorio persistente (`expo-file-system`, API vigente en SDK 57) con nombre `<taskId>.jpg`; funciones `savePhoto`, `deletePhoto`.
+- [x] `TaskForm`: botón **Tomar foto**, vista previa y botón para quitarla antes de guardar.
+- [x] `TaskItem` (lista): miniatura cuando la tarea tiene foto, con `accessibilityLabel`.
+- [x] `task/view/[id].tsx` (tarjeta de la tarea): foto grande y botón **Eliminar foto** con confirmación (mismo patrón de confirmación que el borrado de tareas). Si no hay foto, botón **Tomar foto** para adjuntar una. Tras eliminar, la miniatura desaparece de la lista (invalidar `['tasks']`).
+- [x] Mostrar una foto servida por la API requiere enviar el token: `Image` nativo admite `source={{ uri, headers }}`. En web esto no es fiable: tratar la web como mejor esfuerzo para fotos; el límite se documenta en la Fase 8. (Con la fase 7 la app mostrará siempre el archivo local, y este punto casi desaparece.)
 
 **Pruebas**
-- Servidor (Supertest): subir imagen válida → `200/201` y `hasPhoto: true`; archivo no imagen → `400`; archivo > 5 MB → `413`; subir a una tarea ajena → `404`; `DELETE` elimina el archivo y deja `hasPhoto: false`.
-- Móvil, `camera.ts` (mock de `expo-image-picker`): permiso concedido y foto tomada → `ok` con el `uri`; usuario cancela → `cancelled`; permiso denegado → `denied` sin abrir la cámara; error de la cámara → `unavailable`.
-- Móvil, componentes (RNTL): `TaskForm` muestra la vista previa tras tomar una foto y permite quitarla; `TaskItem` muestra la miniatura solo si hay foto; el detalle muestra **Eliminar foto**, pide confirmación y, al confirmar, llama a la eliminación (y al cancelar no la llama).
+- [x] Servidor (Supertest): subir imagen válida → `200/201` y `hasPhoto: true`; archivo no imagen → `400`; archivo > 5 MB → `413`; subir a una tarea ajena → `404`; `DELETE` elimina el archivo y deja `hasPhoto: false`.
+- [x] Móvil, `camera.ts` (mock de `expo-image-picker`): permiso concedido y foto tomada → `ok` con el `uri`; usuario cancela → `cancelled`; permiso denegado → `denied` sin abrir la cámara; error de la cámara → `unavailable`.
+- [x] Móvil, componentes y API (Jest + RNTL): `TaskForm` muestra la vista previa y permite quitarla; `TaskItem` muestra miniatura solo si hay foto; el detalle confirma y ejecuta la eliminación; `api.test.ts` verifica que la subida nativa envía un `Blob` real con token.
 
-**Checkpoint:** en un teléfono físico (la cámara del emulador es simulada): tomar foto, verla en la lista y en el detalle, eliminarla, reabrir la app.
+- [x] **Checkpoint de verificación física completado:** tomar foto en teléfono, verla en lista y detalle, eliminarla y reabrir la app. Durante el proceso se corrigieron la subida nativa (enviar el `File` persistente como `Blob` real) y la visualización (usar primero el archivo local en lugar de depender de la descarga remota con token).
 
 ## Fase 7 — Almacenamiento local y modo sin conexión
 
